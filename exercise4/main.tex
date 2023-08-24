@@ -1,0 +1,466 @@
+\documentclass[a4paper, 12pt]{article}
+
+\usepackage{cmap}
+\usepackage[T1]{fontenc}
+\usepackage[utf8x]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage[all]{hypcap}
+\usepackage{float}
+\usepackage[margin=1in]{geometry}
+\usepackage[outputdir=build]{minted}
+%\usepackage{pdfpages}
+\usepackage{csquotes}
+
+
+\usepackage[english, science, small]{ku-frontpage}
+
+\usepackage{parskip}
+
+\usepackage[makeroom]{cancel}
+\newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+%\setlength\arraycolsep{2 pt}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{0}
+
+\setminted[python]{linenos,autogobble,breaklines,fontsize=\scriptsize}
+
+\graphicspath{{media/}}
+
+\assignment{}
+\author{Rune Ejnar Bang Lejbølle}
+\title{Exercise 4}
+\subtitle{Elements of Machine Learning}
+\date{\today}
+
+\begin{document}
+	
+\maketitle
+
+\section{2. Monte Carlo Estimation}
+
+\subsection{2.1. Variance of Sample Mean Estimator}
+
+\subsubsection{2.1.1.}
+
+% 1/N^2 * N * \sigma
+
+We want to find the variance of the random variable $\frac{1}{N} \sum_{n=0}^{N-1} x[n]$.
+We first use the rule $\text{Var}(aX) = a^2 \text{Var}(X)$. This gives:
+
+\begin{align}
+	\text{Var}\left(\frac{1}{N} \sum_{n=0}^{N-1} x[n]\right) &= \frac{1}{N^2} \text{Var}\left(\sum_{n=0}^{N-1} x[n]\right)
+\end{align}
+
+Further for uncorrelated random variables $X$ and $Y$ we have $\text{Var}(X + Y) = \text{Var}(X) + \text{Var}(Y)$. Since the random variables $x[n]$ are i.i.d., they are uncorrelated, and we therefore get:
+
+\begin{align}
+	\frac{1}{N^2} \text{Var}\left(\sum_{n=0}^{N-1} x[n]\right) &= \frac{1}{N^2} \sum_{n=0}^{N-1} \text{Var}\left(x[n]\right)\\
+	&= \frac{1}{N^2} \sum_{n=0}^{N-1} \sigma^2\\
+	&= \frac{1}{N^2} \cdot N \cdot \sigma^2\\
+	&= \frac{\sigma^2}{N}
+\end{align}
+
+Therefore, the variance of the sampler is $\frac{\sigma^2}{N}$.
+
+\subsubsection{2.1.2.}
+
+% to zero
+
+Letting $N$ go to infinity we get:
+
+\begin{align}
+	\lim\limits_{N \to \infty} \frac{\sigma^2}{N} = 0
+\end{align}
+
+That is, as $N \to \infty$ we get $\frac{\sigma^2}{N} \to 0$.
+
+\subsubsection{2.1.3.}
+
+% more computation, more precise
+
+Since the variance of the estimator goes to $0$ as $N$ is increased, we get more accurate results with larger values of $N$. Therefore, the larger the training set, the more accurate the estimator will be. However, this is of course a trade-off, since since gathering more training data will require more work, computation and storage.
+
+%However larger values of $N$ will also require more computation, giving a trade-off between the necessary computational power and the accuracy of our results. 
+
+%In cases where we do not have direct knowledge of or access to the distribution $P_X(x)$.
+
+\subsection{2.2. Functions of Random variables}
+
+\subsubsection{2.2.1.}
+
+% integrate
+
+The analytical expected value is calculated by integration:
+
+\begin{align}
+	\mathbb{E}_{P_X}[X] &= \int x P_X(x) dx\\
+	&= \int_{0}^{\infty} x \cdot \frac{1}{2} \text{e}^{-\frac{x}{2}} dx\\
+	&= \lim\limits_{x \to \infty} \left( -(x + 2) \cdot \text{e}^{-\frac{x}{2}} \right) - \left(-(0 + 2) \cdot \text{e}^{-\frac{0}{2}}\right) \\
+	&= 0 + 2\\
+	&= 2
+\end{align}
+
+\subsubsection{2.2.2.}
+
+To obtain samples from the distribution $P_X(x)$ based on samples from a uniform distribution, we can use inverse transform sampling. This is done by first finding the CDF $F_X(x)$, and then inverting this. We first find the CDF by integration:
+
+\begin{align}
+	F_X(x) &= \int_{0}^{x} \frac{1}{2} \text{e}^{-\frac{x}{2}} dx\\
+	&= -\text{e}^{-\frac{x}{2}} - \left(-\text{e}^{-\frac{0}{2}}\right) \\
+	&= 1 - \text{e}^{-\frac{x}{2}}\\
+\end{align}
+
+We can then find the inverse CDF by solving for $x$:
+
+\begin{align}
+	y &= 1 - \text{e}^{-\frac{x}{2}}\\
+	\iff y - 1 &= -\text{e}^{-\frac{x}{2}}\\
+	\iff 1 - y &= \text{e}^{-\frac{x}{2}}\\
+	\iff \ln (1 - y) &= -\frac{x}{2}\\
+	\iff - 2 \ln (1 - y) &= x
+\end{align}
+
+By transforming samples from a uniform distribution using this function we then obtain samples from the distribution $P_X(x)$.
+The code used to get samples from the distribution is shown below:
+
+\begin{minted}{python}
+	def get_samples(N):
+		return -2 * np.log(1 - np.random.uniform(0, 1, N))
+\end{minted}
+
+One could also have used rejection sampling, but when possible as in this case, inverse transform sampling is preferred, as it requires less computation on average.
+
+\subsubsection{2.2.3.}
+
+Using the following additional code, estimates of the given expectations were obtained:
+
+\begin{minted}{python}
+	def get_sample_mean(N, f):
+		samples = get_samples(N)
+		return np.mean(f(samples))
+	
+	
+	for N in [5, 10, 100]:
+		print(f"N: {N}")
+		print(f"E[X]: {get_sample_mean(N, lambda x: x)}")
+		print(f"E[log X]: {get_sample_mean(N, np.log)}")
+		print(f"E[-log P_X(x)]: {get_sample_mean(N, lambda x: - np.log(0.5 * np.exp(- x/2)))}")
+		print()
+\end{minted}
+
+The obtained estimates can be seen in \autoref{table1}.
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|c||c|c|c|}
+		\hline
+		& $N=5$ & $N=10$ & $N=100$ \\
+		\hline\hline
+		$\mathbb{E}_{P_X}[X]$ & 1.0054 & 1.5339 & 1.8639 \\
+		\hline
+		$\mathbb{E}_{P_X}[\log X]$ & -0.2319 & -0.1635 & 0.0968 \\
+		\hline
+		$\mathbb{E}_{P_X}[- \log P_X(x)]$ & 1.2517 & 1.8741 & 1.6814 \\
+		\hline
+	\end{tabular}
+	\label{table1}
+	\caption{Results of Monte Carlo Estimation.}
+\end{table}
+
+Even though it is partly coincidental, we here see how the estimates of $\mathbb{E}_{P_X}[X]$ approach the true value of $2$ as $N$ increases.
+
+\section{4. Representation Learning \& Generative Modelling}
+
+\subsection{4.1. Getting to know the data}
+
+\subsubsection{4.1.1.}
+
+The MNIST data was downloaded and loaded in Python using the following code:
+
+\begin{minted}{python}
+	from torchvision.datasets import MNIST
+	
+	train_set = MNIST('.', train=True, download=True)
+	test_set = MNIST('.', train=False, download=True)
+\end{minted}
+
+\subsubsection{4.1.2.}
+
+The training set contained 60,000 data points, while the test set contained 10,000.
+
+\subsubsection{4.1.3.}
+
+A histogram showing the frequency of each label can be seen in \autoref{fig:screenshot002}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot003}
+	\caption{Histogram showing label frequencies.}
+	\label{fig:screenshot002}
+\end{figure}
+
+As can be seen from the histogram the data distribution is not perfectly balanced, but there are also no large outliers in terms of frequency.
+
+\subsubsection{4.1.4.}
+
+\autoref{fig:screenshot004} shows 10 examples of data from the training set.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot004}
+	\caption{Visualization of 10 samples from the training data.}
+	\label{fig:screenshot004}
+\end{figure}
+
+\subsubsection{4.1.5.}
+
+Finally, the data points were reshaped into vectors of dimension 784 instead of $28 \times 28$ matrices.
+The individual entries in these vectors was also converted to be floating point numbers between 0 and 1, instead of bytes between 0 and 255.
+
+The code used to do this can be seen below:
+
+\begin{minted}{python}
+	X_train = torch.flatten(train_set.data, 1).float() / 255
+	X_test = torch.flatten(test_set.data, 1).float() / 255
+\end{minted}
+
+
+\subsection{4.2. Principal component analysis (PCA) on MNIST}
+
+\subsubsection{4.2.1.}
+
+A subset of the data containing only data points belonging to the classes $[0, 1, 2, 3, 4]$ was extracted using the following code:
+
+\begin{minted}{python}
+	train_reduced_index = (train_set.targets < 5)
+	X_train_reduced = X_train[train_reduced_index]
+	y_train_reduced = train_set.targets[train_reduced_index]
+	
+	test_reduced_index = (test_set.targets < 5)
+	X_test_reduced = X_test[test_reduced_index]
+	y_test_reduced = test_set.targets[test_reduced_index]
+\end{minted}
+
+\subsubsection{4.2.2. \& 4.2.3.}
+
+PCA was performed on the reduced set of training data using the Scikit-Learn implementation of PCA with the following code:
+
+\begin{minted}{python}
+	pca = PCA(n_components=200)
+	pca.fit(X_train_reduced)
+\end{minted}
+
+\subsubsection{4.2.4.}
+
+The fraction of variance explained by each component can be seen in \autoref{fig:screenshot005}. The 200 components explained a total of 97.09\% of the variance.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot006}
+	\caption{Eigenspectrum with $D = 200$.}
+	\label{fig:screenshot005}
+\end{figure}
+
+\subsubsection{4.2.5.}
+
+The total explained variance as a function of the number of components is visualized in \autoref{fig:screenshot007}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot007}
+	\caption{Fraction of variance explained with varying values of $D$.}
+	\label{fig:screenshot007}
+\end{figure}
+
+As can be seen, increasing the number of components increases the amount of variance explained, but with diminishing returns. The main benefit of increasing $D$ is therefore that less variance, and thereby potentially information is lost, likely increasing the quality of the data. The main drawback is that increasing $D$ means using data of higher dimensions, which is both more computationally expensive, and may be harder to learn from with a fixed number of samples ("the Curse of Dimensionality").
+
+\subsubsection{4.2.6.}
+
+A visualization of the the 2D representation of the data can be seen in \autoref{fig:screenshot012}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot012}
+	\caption{2D representation of training data.}
+	\label{fig:screenshot012}
+\end{figure}
+
+
+The various classes do seem to have distinct distributions in this space, but there is also a considerable overlap in these distributions, which means that clustering methods will likely not be able to distinguish accurately between the classes. The data points representing the digit "1" are very concentrated and does not overlap as much with the other classes, so these would likely be the easiest to identify. On the other hand there is a lot of overlap between data points representing the digit "2" and all other classes, meaning that these will likely be hard to identify.
+
+\subsubsection{4.2.7.}
+
+A visualization of the test data in 2D using the PCA learned from the training data can be seen in \autoref{fig:screenshot008}. Compared to the visualization of the training data, it seems like the distribution of the classes are largely the same.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot011}
+	\caption{2D representation of test data.}
+	\label{fig:screenshot008}
+\end{figure}
+
+\subsubsection{4.2.8.}
+
+k-means clustering was performed on the data with $k = 5$. Each of these clusters were mapped to a class label by voting based on the training labels, such that a cluster was assigned the label that the highest percentage of training data points within that cluster was assigned to. This did not give a one-to-one mapping, however. As can be seen in \autoref{fig:screenshot013}, two distinct clusters were assigned the label "4", while no cluster was assigned the label "2". As mentioned in 4.2.6. this is due to the fact that the data points labeled "2" overlaps with the other distributions to a very large degree. The accuracy of classifying the training data this way was 70.38\%. The adjusted random index score was 0.4810, while the mutual information score was 0.5040.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{screenshot013}
+	\includegraphics[width=0.4\linewidth]{screenshot014}
+	\caption{Left: raw output from k-means clustering. Right: clusters mapped to class labels.}
+	\label{fig:screenshot013}
+\end{figure}
+
+Using the means learned from the training data, the test data was assigned to the cluster with the closest mean, and mapped to a class label using the mapping learned from the training data. The results of this can be seen in \autoref{fig:screenshot015}. For the test data the classification accuracy was 70.68\%. The adjusted random index score was 0.4859, while the mutual information score was 0.5151.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{screenshot015}
+	\includegraphics[width=0.4\linewidth]{screenshot016}
+	\caption{Left: raw output from k-means clustering. Right: clusters mapped to class labels.}
+	\label{fig:screenshot015}
+\end{figure}
+
+\subsection{4.3. Autoencoders on MNIST}
+
+\subsubsection{4.3.1., 4.3.2. \& 4.3.3.}
+
+The handout code was completed. The full code can be seen in the appendix. A sigmoid function was used in the last layer of the decoder to ensure the output values were between 0 and 1 similar to the target values.
+
+\subsubsection{4.3.4.}
+
+After some tuning of the learning rate and batch size, the model was trained to encode the data into 2 dimensions, using a batch size of $2^{11}$, a learning rate of $10^{-6} \cdot \text{batch size}$ in the final model. After 500 epochs, the training loss was 0.1727 and the test loss was 0.1740.
+The validation loss at the end of each epoch can be seen in \autoref{fig:screenshot023} and shows no signs of overfitting, even after so many epochs. \autoref{fig:reconstructionae500} shows some examples of validation data points before and after reconstruction using the trained model. Even though the reconstructions are blurry, they look very much like the originals.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot023}
+	\caption{Validation loss at each epoch.}
+	\label{fig:screenshot023}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{src/results/reconstruction_ae_500}
+	\caption{Top row: original validation data points. Bottom row: reconstruction created by trained model.}
+	\label{fig:reconstructionae500}
+\end{figure}
+
+
+The model was then used to transform the training and testing data into 2 dimensions. The results of this can be seen in \autoref{fig:screenshot017}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{screenshot017}
+	\includegraphics[width=0.4\linewidth]{screenshot018}
+	\caption{Left: transformed training data. Right transformed test data.}
+	\label{fig:screenshot017}
+\end{figure}
+
+Next, clustering was performed, and clusters were mapped to class labels using the same method as in 4.2.8. The results of this can be seen in \autoref{fig:screenshot019}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{screenshot019}
+	\includegraphics[width=0.4\linewidth]{screenshot021}
+	\includegraphics[width=0.4\linewidth]{screenshot020}
+	\includegraphics[width=0.4\linewidth]{screenshot022}
+	\caption{Left column: training data. Right column: test data. Top row: raw cluster labels. Bottom row: clusters mapped to class labels.}
+	\label{fig:screenshot019}
+\end{figure}
+
+\subsubsection{4.3.5.}
+
+The classification accuracy using the mapped labels was 63.92\% for the training data, and 65.05\% for the test data. The adjusted random index score was 0.3968 for the training data and 0.4115 for the test data, while the mutual information score was 0.5249 for the training data and 0.5427 for the test data. This is a worse classification accuracy and adjusted random index score than with PCA, but a slightly larger mutual information score. The larger mutual information score may be caused by the fact that the labels are more separated compared to the transformation using PCA, meaning that even though data points of different labels are clustered together frequently, it happens more systematically using this method compared to PCA.
+
+It seems like the performance of the clustering is being greatly limited by the shape of the clusters, which can be clearly seen in \autoref{fig:screenshot017}. This shape is caused largely by the use of ReLU in the last layer of the encoder, which prevents negative values in the data, causing the clusters form "stripes" directed away from the origin. One might be able to increase the performance by using some form of hierarchical clustering, which is better suited for non-circular clusters. Alternatively, not using ReLU in the last layer could potentially allow other shapes of clusters.
+
+\subsection{4.4. Variational Autoencoders on MNIST}
+
+\subsubsection{4.4.1., 4.4.2. \& 4.4.3.}
+
+The code for the encoder, reparameterisation, and decoder was completed. Since prior latent distribution is a standard normal distribution, which is centered around (0, 0), we want the model to be able to produce posterior means around this point, meaning that these should also be able to be negative. Similarly we also want the posterior variance to be able to be below 1, which is only possible with negative values of the \texttt{logvar}. Therefore, ReLU is not used in the last layer of the encoder. Instead, no activation is used. The code for the decoder is the exact same as in 4.3.2.
+
+\subsubsection{4.4.4.}
+
+The code for calculating ELBO loss was completed, and the model was trained using this loss function, after some tuning of the learning rate and batch size. 2 latent dimensions were used, along with a batch size of $2^{12}$, and a learning rate of $5 \cdot 10^{-7} \cdot \text{batch size}$ for the final model. After 500 epochs, the training ELBO loss was 0.1851, while the training BCE loss was 0.1777. The test ELBO loss was 0.1854, while the test BCE loss was 0.1780.
+\autoref{fig:screenshot024} shows how the validation loss and its components changed during training. Again there are no signs of overfitting. Even though the regularization loss does increase, this is offset by a decrease in the BCE loss, likely caused by additional model complexity.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot034}
+	\caption{Validation loss and its components at each epoch. Note that since the regularization loss is much lower than the BCE loss, it is scaled differently in the plot, as indicated by the axis on the right.}
+	\label{fig:screenshot024}
+\end{figure}
+
+\autoref{fig:reconstructionvae500} shows some examples of validation data points before and after reconstructions by the trained model. Compared to the basic autoencoder, the reconstructions seem like they may be a bit less blurry overall.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{src/results/reconstruction_vae_500}
+	\caption{Top row: original validation data points. Bottom row: reconstruction created by trained model.}
+	\label{fig:reconstructionvae500}
+\end{figure}
+
+
+\subsubsection{4.4.5.}
+
+The training and test data was transformed into 2 dimensions using the trained model. The mean assigned to each data point by the model is visualized in \autoref{fig:screenshot026}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{screenshot035}
+	\includegraphics[width=0.4\linewidth]{screenshot036}
+	\caption{Left: transformed training data. Right transformed test data.}
+	\label{fig:screenshot026}
+\end{figure}
+
+Again, clustering and classification was done using the same method as in 4.2.8. The results of this can be seen in \autoref{fig:screenshot028}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{screenshot037}
+	\includegraphics[width=0.4\linewidth]{screenshot039}
+	\includegraphics[width=0.4\linewidth]{screenshot038}
+	\includegraphics[width=0.4\linewidth]{screenshot040}
+	\caption{Left column: training data. Right column: test data. Top row: raw cluster labels. Bottom row: clusters mapped to class labels.}
+	\label{fig:screenshot028}
+\end{figure}
+
+The classification accuracy using the mapped labels was 87.83\% for the training data, and 88.93\% for the test data. The adjusted random index score was 0.7213 for the training data and 0.7448 for the test data, while the mutual information score was 0.7205 for the training data and 0.7405 for the test data.
+
+By all these measures this method thereby performs better than both PCA and basic AE. This better performance can clearly be seen by just looking at \autoref{fig:screenshot026}. The clusters of class labels are both more circular and less overlapping, making them much more ideal for k-means clustering. However, using some form of hierarchical clustering may again be able to further increase the performance, since this can better deal with the fact that the clusters are not perfectly circular, or of the same size.
+
+\subsubsection{4.4.6.}
+
+Using the trained model, 32 samples from a standard normal distribution was decoded. The results of this can be seen in \autoref{fig:screenshot033}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot041}
+	\caption{Synthetic data generated by VAE.}
+	\label{fig:screenshot033}
+\end{figure}
+
+Although blurry, most samples look like real digits, showing that the model has learned a latent space distribution of realistic digits. There are however some that do not look like real digits, or look like a mix of multiple digits. These likely correspond to samples from areas of the latent that are less populated by training data, or areas that contain multiple classes of data.
+
+\appendix
+
+\section{Appendix}
+
+\subsection{Code}
+
+\subsubsection{2. Monte Carlo Estimation}
+
+\inputminted{python}{/home/runeebl/Documents/Datalogi/EML/exercise4/src/sampling.py}
+
+\subsubsection{3. Representation Learning \& Generative Modelling}
+
+\inputminted{python}{/home/runeebl/Documents/Datalogi/EML/exercise4/src/HA4_template.py}
+
+\end{document}

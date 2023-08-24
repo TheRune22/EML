@@ -1,0 +1,753 @@
+\documentclass[a4paper, 12pt]{article}
+
+\usepackage{cmap}
+\usepackage[T1]{fontenc}
+\usepackage[utf8x]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage[all]{hypcap}
+\usepackage{float}
+\usepackage[margin=1in]{geometry}
+\usepackage{minted}
+%\usepackage{pdfpages}
+\usepackage{csquotes}
+
+
+\usepackage[english, science, small]{ku-frontpage}
+
+\usepackage{parskip}
+
+\usepackage[makeroom]{cancel}
+\newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+%\setlength\arraycolsep{2 pt}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{0}
+
+\setminted[python]{linenos,autogobble,fontsize=\scriptsize}
+
+\graphicspath{{media/}}
+
+\assignment{}
+\author{Rune Ejnar Bang Lejbølle (discussed book excercises with Rasmus Løvstad)}
+\title{Exercise 2}
+\subtitle{Elements of Machine Learning}
+\date{\today}
+
+\begin{document}
+	
+\maketitle
+
+
+\section{PRML exercises}
+
+\subsection{8.16}
+
+We want to calculate $p(x_n \mid x_N)$. From the definition of conditional probability we have:
+
+\begin{align}
+	p(x_n \mid x_N) = \frac{p(x_n, x_N)}{p(x_N)}
+\end{align}
+
+The probability $p(x_N)$ can simply be calculated using the existing algorithm and Equation 8.54 of PRML. Since $x_N$ is the rightmost node, we have $\mu_{\beta}(x_N) = 1$, and therefore:
+
+\begin{align}
+	p(x_N) = \frac{1}{Z} \mu_{\alpha}(x_N)
+\end{align}
+
+We now need to calculate $p(x_n, x_N)$. This can be done by modifying Equation 8.50 of PRML, so that instead of marginalizing out all variables except for $x_n$, we instead marginalize out all variables except $x_n$ and $x_N$. This gives:
+
+\begin{align}
+	p(x_n, x_N) = \sum_{x_1} \cdots \sum_{x_{n-1}} \sum_{x_{n+1}} \cdots \sum_{x_{N-1}} p(\mathbf{x})
+\end{align}
+
+Similarly to Equation 8.52 of PRML we can then group potentials and summations to get:
+
+\begin{align}
+	p\left(x_{n}, x_{N}\right) &=\frac{1}{Z} \\
+	&\underbrace{\left[\sum_{x_{n-1}} \psi_{n-1, n}\left(x_{n-1}, x_{n}\right) \cdots\left[\sum_{x_{2}} \psi_{2,3}\left(x_{2}, x_{3}\right)\left[\sum_{x_{1}} \psi_{1,2}\left(x_{1}, x_{2}\right)\right]\right] \ldots\right]}_{\mu_{\alpha}\left(x_{n}\right)} \\
+	&\left.
+	\begin{array}{l}
+		\left[\sum_{x_{n+1}} \psi_{n, n+1}\left(x_{n}, x_{n+1}\right) \cdots  \left[\sum_{x_{N-2}} \psi_{N-3, N-2}\left(x_{N-3}, x_{N-2}\right)\right.\right.\\
+		\left.\left.\left[\sum_{x_{N-1}} \psi_{N-2, N-1}\left(x_{N-2}, x_{N-1}\right) \cdot \psi_{N-1, N}\left(x_{N-1}, x_{N}\right)\right]\right] \cdots\right]
+	\end{array}
+	\right\} \mu_{\beta'}\left(x_{n}\right) 
+\end{align}
+
+Compared to Equation 8.52 of PRML the messages coming from the left, $\mu_{\alpha}\left(x_{n}\right)$, are unchanged. However, the messages coming from the right, here denoted $\mu_{\beta'}\left(x_{n}\right)$, are changed, in that the innermost sum is $\sum_{x_{N-1}} \psi_{N-2, N-1}\left(x_{N-2}, x_{N-1}\right) \cdot \psi_{N-1, N}\left(x_{N-1}, x_{N}\right)$ instead of $\sum_{x_{N}} \psi_{N-1, N}\left(x_{N-1}, x_{N}\right)$, because we no longer marginalize out $x_N$. 
+
+The final formula for $p(x_n \mid x_N)$ is then:
+
+\begin{align}
+	p(x_n \mid x_N) &= \frac{\mu_{\alpha}\left(x_{n}\right)}{\mu_{\alpha}(x_N)} \cdot \mu_{\beta'}\left(x_{n}\right)
+\end{align}
+
+With:
+
+\begin{align}
+	\mu_{\beta'}\left(x_{n}\right) &= \left[\sum_{x_{n+1}} \psi_{n, n+1}\left(x_{n}, x_{n+1}\right) \cdots  \left[\sum_{x_{N-2}} \psi_{N-3, N-2}\left(x_{N-3}, x_{N-2}\right)\right.\right.\\
+	&\left.\left.\left[\sum_{x_{N-1}} \psi_{N-2, N-1}\left(x_{N-2}, x_{N-1}\right) \cdot \psi_{N-1, N}\left(x_{N-1}, x_{N}\right)\right]\right] \cdots\right]
+\end{align}
+
+Or alternatively:
+
+\begin{align}
+	\mu_{\beta'}\left(x_{n}\right) &= \sum_{x_{n+1}} \psi_{n, n+1}\left(x_{n}, x_{n+1}\right)  \mu_{\beta'}\left(x_{n+1}\right) ~~~ \text{ for } n < N - 1
+%	\mu_{\beta'}\left(x_{N - 2}\right) &= \sum_{x_{N-1}}  \psi_{N-2, N-1}\left(x_{N-2}, x_{N-1}\right) \cdot \psi_{N-1, N}\left(x_{N-1}, x_{N}\right)\\
+%	\mu_{\beta'}\left(x_{N - 1}\right) &= \psi_{N-1, N}\left(x_{N-1}, x_{N}\right)
+\end{align}
+
+We can then initialize with $\mu_{\beta'}\left(x_{N - 1}\right) = \psi_{N-1, N}\left(x_{N-1}, x_{N}\right)$ and calculate the messages going from right to left recursively, thereby solving the problem efficiently.
+
+
+%		\left[\sum_{x_{n+1}} \psi_{n, n+1}\left(x_{n}, x_{n+1}\right) \cdots  \left[\sum_{x_{N-2}} \psi_{N-3, N-2}\left(x_{N-3}, x_{N-2}\right)\right.\right.\\
+%		\left.\left.\left[\sum_{x_{N-1}} \psi_{N-2, N-1}\left(x_{N-2}, x_{N-1}\right) \cdot \psi_{N-1, N}\left(x_{N-1}, x_{N}\right)\right]\right] \cdots\right]
+
+%	&\left[\sum_{x_{n+1}} \psi_{n, n+1}\left(x_{n}, x_{n+1}\right) \cdots  \left[\sum_{x_{N-2}} \psi_{N-3, N-2}\left(x_{N-3}, x_{N-2}\right)\right.\right.\\
+%	&\underbrace{\left.\left.\left[\sum_{x_{N-1}} \psi_{N-2, N-1}\left(x_{N-2}, x_{N-1}\right) \cdot \psi_{N-1, N}\left(x_{N-1}, x_{N}\right)\right]\right] \cdots\right]}
+
+\subsection{8.27}
+
+The constructed joint distribution is shown in the below table with the inner cells corresponding to the values of $p(x,y)$:
+
+\begin{tabular}{c|ccc}
+	$p(x,y)$ & $x=0$ & $x=1$ & $x=2$ \\
+	\hline
+	$y=0$ & 0 & 0.2 & 0.3 \\
+	$y=1$ & 0.2 & 0 & 0 \\
+	$y=2$ & 0.3 & 0 & 0 \\
+\end{tabular}
+
+From this joint distribution, marginal probabilities can be calculated as follows:
+
+\begin{align}
+	p(x=0) = \sum_y p(x=0,y) = 0 + 0.2 + 0.3 = 0.5\\
+	p(x=1) = \sum_y p(x=1,y) = 0.2 + 0 + 0 = 0.2\\
+	p(x=2) = \sum_y p(x=2,y) = 0.3 + 0 + 0 = 0.3\\
+	p(y=0) = \sum_x p(x,y=0) = 0 + 0.2 + 0.3 = 0.5\\
+	p(y=1) = \sum_x p(x,y=1) = 0.2 + 0 + 0 = 0.2\\
+	p(y=2) = \sum_x p(x,y=2) = 0.3 + 0 + 0 = 0.3
+\end{align}
+
+From these marginal probabilities it is clear that the value $\hat{x}$ that maximizes $p(x)$ is $\hat{x}=0$, and similarly that the value $\hat{y}$ that maximizes $p(y)$ is $\hat{y}=0$. Yet, it also clear from the table showing the joint distribution that $p(\hat{x}, \hat{y}) = p(x=0, y=0) = 0$.
+
+\section{ESL exercises}
+
+\subsection{8.4}
+
+The bagging estimate is defined as:
+
+
+\begin{align}\label{eq1}
+	\hat{f}_{\text{bag}}(x) = \frac{1}{B} \sum_{b=1}^B \hat{f}^{*b}(x)
+\end{align}
+
+Here $\hat{f}^{*b}(x)$ is the estimate given by our model for the data $x$ after having been fit on the bootstrap sample $\mathbf{Z}^{*b}$. The model used in this case is the $B$-spline smoother $\mu(x)$, which can generally be defined as follows:
+
+\begin{align}
+	\mu(x) = {h(x)}^T \beta
+%	\mu(x) = \sum_{j=1}^{J} \beta_j h_j(x)
+\end{align}
+
+Where ${h(x)}^T = \left[\begin{array}{cccc}
+	h_1(x) & h_2(x) & \ldots & h_J(x)
+\end{array}\right]$ is a row-vector consisting of the values of the B-spline basis functions evaluated at $x$.
+
+Fitting this model to data $\mathbf{x}, \mathbf{y}$ gives the fitted parameter $\hat{\beta}$ the following value:
+
+\begin{align}
+	\hat{\beta} = (\mathbf{H}^T \mathbf{H})^{-1} \mathbf{H}^T \mathbf{y}
+\end{align}
+
+Where $\mathbf{H}$ is a $N \times J$ matrix with the $ij$th element having value $h_j(x_i)$.
+
+Inserting this fitted model into \autoref{eq1} we get:
+
+\begin{align}
+	\hat{f}_{\text{bag}}(x) &= \frac{1}{B} \sum_{b=1}^B \hat{f}^{*b}(x)\\
+	&= \frac{1}{B} \sum_{b=1}^B \hat{\mu}^{*b}(x)\\
+	&= \frac{1}{B} \sum_{b=1}^B {h(x)}^T \hat{\beta}^{*b}\\
+	&= \frac{1}{B} \sum_{b=1}^B {h(x)}^T (\mathbf{H}^T \mathbf{H})^{-1} \mathbf{H}^T \mathbf{y}^{*b}\label{eq2}
+\end{align}
+
+
+Where $\mathbf{y}^{*b}$ is a vector of $y$-values of bootstrap samples, with a single element $y_i^{*b}$ in this vector given by:
+
+\begin{align}
+	y_i^{*b} = \hat{\mu}(x_i) + \epsilon_i^{*b};~~~ \epsilon_i^{*b} \sim N(0, \hat{\sigma});~~~ i = 1,2,\ldots,N
+\end{align}
+
+Where $\hat{\mu}(x_i)$ is the estimate of the model fit on the original data.
+
+We want to show that the bagging estimate $\hat{f}_{\text{bag}}(x)$ converges to the original estimate $\hat{f}(x) = \hat{\mu}(x)$ as $B \to \infty$.
+
+It is clear from \autoref{eq2} that the bagging estimate $\hat{f}_{\text{bag}}(x)$ is simply the sample mean of samples from the random variable $\hat{\mu}^{*b}(x) = {h(x)}^T (\mathbf{H}^T \mathbf{H})^{-1} \mathbf{H}^T \mathbf{y}^{*b}$.
+
+By the law of large numbers, this sample mean should approach the theoretical mean, as the number of samples goes to infinity. The theoretical mean, as given by Equation 8.7 in ESL is exactly $\hat{\mu}(x)$, the original estimate. Therefore it is indeed the case that the bagging estimate $\hat{f}_{\text{bag}}(x)$ converges to the original estimate $\hat{f}(x) = \hat{\mu}(x)$ as $B \to \infty$.
+
+%Here $\hat{\mu}(x_i)$ is the estimate of the model fit on the original data, given by:
+%
+%\begin{align}
+%	\hat{\mu}(x_i) = {h(x_i)}^T \hat{\beta} = {h(x_i)}^T (\mathbf{H}^T \mathbf{H})^{-1} \mathbf{H}^T \mathbf{y}
+%\end{align}
+% show that expressed as vector, this is 
+%\begin{align}
+%	\hat{\mu}(x_i) = {h(x_i)}^T \hat{\beta} = (\mathbf{H}^T \mathbf{H})^{-1} \mathbf{H}^T \mathbf{H} \mathbf{y}
+%\end{align}
+
+\subsection{10.1}
+% Ex. 10.1 Derive expression (10.12) for the update parameter in AdaBoost.
+
+We want to show that:
+
+\begin{align}
+	\arg \min_{\beta} \sum_{i=1}^N w_i^{(m)} \exp(-\beta y_i G_m(x_i)) = \frac{1}{2} \log \frac{1 - \text{err}_m}{\text{err}_m}
+\end{align}
+
+Following the steps of ESL, we first rewrite:
+
+\begin{align}
+	&\sum_{i=1}^N w_i^{(m)} \exp(-\beta y_i G_m(x_i))\\
+	&= \left(e^{\beta}-e^{-\beta}\right) \cdot \sum_{i=1}^{N} w_{i}^{(m)} I\left(y_{i} \neq G\left(x_{i}\right)\right)+e^{-\beta} \cdot \sum_{i=1}^{N} w_{i}^{(m)}
+\end{align}
+
+We then differentiate with respect to $\beta$:
+
+\begin{align}
+	&\frac{\partial}{\partial \beta} \left( \left(e^{\beta}-e^{-\beta}\right) \cdot \sum_{i=1}^{N} w_{i}^{(m)} I\left(y_{i} \neq G\left(x_{i}\right)\right)+e^{-\beta} \cdot \sum_{i=1}^{N} w_{i}^{(m)} \right)\\
+	&= \left(e^{\beta} + e^{-\beta}\right) \cdot \sum_{i=1}^{N} w_{i}^{(m)} I\left(y_{i} \neq G\left(x_{i}\right)\right) - e^{-\beta} \cdot \sum_{i=1}^{N} w_{i}^{(m)}
+\end{align}
+
+We then set this to $0$ and solve for $\beta$ to find the minimum:
+
+\begin{align}
+	0 &= \left(e^{\beta} + e^{-\beta}\right) \cdot \sum_{i=1}^{N} w_{i}^{(m)} I\left(y_{i} \neq G\left(x_{i}\right)\right) - e^{-\beta} \cdot \sum_{i=1}^{N} w_{i}^{(m)}
+\end{align}
+
+Dividing by $\sum_{i=1}^{N} w_{i}^{(m)}$ we get:
+
+\begin{align}
+	0 &= \left(e^{\beta} + e^{-\beta}\right) \cdot \frac{\sum_{i=1}^{N} w_{i}^{(m)} I\left(y_{i} \neq G\left(x_{i}\right)\right)}{\sum_{i=1}^{N} w_{i}^{(m)}} - e^{-\beta}
+\end{align}
+
+Substituting $\text{err}_m = \frac{\sum_{i=1}^{N} w_{i}^{(m)} I\left(y_{i} \neq G\left(x_{i}\right)\right)}{\sum_{i=1}^{N} w_{i}^{(m)}}$ and rewriting we get:
+
+\begin{align}
+	0 &= \left(e^{\beta} + e^{-\beta}\right) \cdot\text{err}_m - e^{-\beta}\\
+	\iff 0 &= e^{\beta} \cdot \text{err}_m + e^{-\beta} \cdot \text{err}_m - e^{-\beta}\\
+	\iff 0 &= e^{\beta} \cdot \text{err}_m - e^{-\beta} (1 - \text{err}_m)\\
+	\iff e^{\beta} \cdot \text{err}_m &= e^{-\beta} (1 - \text{err}_m)\\
+\end{align}
+
+We can now take logarithms on both sides and rewrite:
+
+
+\begin{align}
+	\ln (e^{\beta} \cdot \text{err}_m) &= \ln (e^{-\beta} (1 - \text{err}_m))\\
+	\iff \ln e^{\beta} + \ln \text{err}_m &= \ln e^{-\beta} + \ln (1 - \text{err}_m)\\
+	\iff \beta + \ln \text{err}_m &= -\beta + \ln (1 - \text{err}_m)\\
+	\iff 2\beta &= \ln (1 - \text{err}_m) - \ln \text{err}_m\\
+	\iff 2\beta &= \ln \frac{1 - \text{err}_m}{\text{err}_m}\\
+	\iff \beta &= \frac{1}{2} \ln \frac{1 - \text{err}_m}{\text{err}_m}\\
+\end{align}
+
+Thereby we have shown that:
+
+\begin{align}
+	\arg \min_{\beta} \sum_{i=1}^N w_i^{(m)} \exp(-\beta y_i G_m(x_i)) = \frac{1}{2} \log \frac{1 - \text{err}_m}{\text{err}_m}
+\end{align}
+
+% TODO: convex
+
+\section{Graphical Models}
+
+\subsection{1}
+For simplicity only the first letter of each node in the graph will be used in the following, so for example $p(\text{Intelligence} = 1)$ will be written as $p(I=1)$.
+
+We are interested in evaluating the conditional probability $p(I=1 \mid L=1, S = 1)$. By the product rule of probability we have:
+
+\begin{align}
+	p(I=1 \mid L=1, S = 1) = \frac{p(L=1, S=1, I=1)}{p(L=1, S=1)}
+\end{align}
+
+The value of $p(L=1, S=1, I=1)$ and $p(L=1, S=1)$ can be calculated by marginalizing the joint probability of all the variables, $p(L, S, I, G, D)$. By the structure of the graph, and Equation 8.5 of PRML, this joint distribution is given by:
+
+\begin{align}
+	p(L, S, I, G, D) = P(L \mid G)P(S \mid I)P(I)P(G \mid D,I)P(D)
+\end{align}
+
+Using marginalization we then have:
+
+\begin{align}
+	p(L=1, S=1, I=1) &= \sum_{G, D} P(L=1 \mid G)P(S=1 \mid I=1)P(I=1)P(G \mid D,I=1)P(D)
+\end{align}
+
+This sum has six terms, which will be evaluated below:
+
+\begin{align}
+	P(L=1 \mid G=1)P(S=1 \mid I=1)P(I=1)P(G=1 \mid D=0,I=1)P(D=0)&\\
+	= 0.9 \cdot 0.8 \cdot 0.3 \cdot 0.9 \cdot 0.6 = 0.11664&\\
+	P(L=1 \mid G=2)P(S=1 \mid I=1)P(I=1)P(G=2 \mid D=0,I=1)P(D=0)&\\
+	= 0.6 \cdot 0.8 \cdot 0.3 \cdot 0.08 \cdot 0.6 = 0.006912&\\
+	P(L=1 \mid G=3)P(S=1 \mid I=1)P(I=1)P(G=3 \mid D=0,I=1)P(D=0)&\\
+	= 0.01 \cdot 0.8 \cdot 0.3 \cdot 0.02 \cdot 0.6 = 0.0000288&\\
+	P(L=1 \mid G=1)P(S=1 \mid I=1)P(I=1)P(G=1 \mid D=1,I=1)P(D=1)&\\
+	= 0.9 \cdot 0.8 \cdot 0.3 \cdot 0.5 \cdot 0.4 = 0.0432&\\
+	P(L=1 \mid G=2)P(S=1 \mid I=1)P(I=1)P(G=2 \mid D=1,I=1)P(D=1)&\\
+	= 0.6 \cdot 0.8 \cdot 0.3 \cdot 0.3 \cdot 0.4 = 0.01728&\\
+	P(L=1 \mid G=3)P(S=1 \mid I=1)P(I=1)P(G=3 \mid D=1,I=1)P(D=1)&\\
+	= 0.01 \cdot 0.8 \cdot 0.3 \cdot 0.2 \cdot 0.4 = 0.000192&
+\end{align}
+
+Finally we have:
+
+\begin{align}
+	&p(L=1, S=1, I=1)\\
+	&= 0.11664 + 0.006912 + 0.0000288 + 0.0432 + 0.01728 + 0.000192 = 0.1842528
+\end{align}
+
+We now need to calculate $p(L=1, S=1)$. This can be done by marginalizing $p(L, S, I)$:
+
+\begin{align}
+	p(L=1, S=1) = \sum_I p(L=I, S=I, I) = p(L=I, S=I, I=0) + p(L=I, S=I, I=1)
+\end{align}
+
+$p(L=I, S=I, I=1)$ was calculated above, so we only need to calculate $p(L=I, S=I, I=0)$. Again we have:
+
+\begin{align}
+	p(L=1, S=1, I=0) &= \sum_{G, D} P(L=1 \mid G)P(S=1 \mid I=0)P(I=0)P(G \mid D,I=0)P(D)
+\end{align}
+
+The six terms in this sum are evaluated below:
+
+\begin{align}
+	P(L=1 \mid G=1)P(S=1 \mid I=0)P(I=0)P(G=1 \mid D=0,I=0)P(D=0)&\\
+	= 0.9 \cdot 0.05 \cdot 0.7 \cdot 0.3 \cdot 0.6 = 0.00567&\\
+	P(L=1 \mid G=2)P(S=1 \mid I=0)P(I=0)P(G=2 \mid D=0,I=0)P(D=0)&\\
+	= 0.6 \cdot 0.05 \cdot 0.7 \cdot 0.4 \cdot 0.6 = 0.00504&\\
+	P(L=1 \mid G=3)P(S=1 \mid I=0)P(I=0)P(G=3 \mid D=0,I=0)P(D=0)&\\
+	= 0.01 \cdot 0.05 \cdot 0.7 \cdot 0.3 \cdot 0.6 = 0.000063&\\
+	P(L=1 \mid G=1)P(S=1 \mid I=0)P(I=0)P(G=1 \mid D=1,I=0)P(D=1)&\\
+	= 0.9 \cdot 0.05 \cdot 0.7 \cdot 0.05 \cdot 0.4 = 0.000063&\\
+	P(L=1 \mid G=2)P(S=1 \mid I=0)P(I=0)P(G=2 \mid D=1,I=0)P(D=1)&\\
+	= 0.6 \cdot 0.05 \cdot 0.7 \cdot 0.25 \cdot 0.4 = 0.0021&\\
+	P(L=1 \mid G=3)P(S=1 \mid I=0)P(I=0)P(G=3 \mid D=1,I=0)P(D=1)&\\
+	= 0.01 \cdot 0.05 \cdot 0.7 \cdot 0.7 \cdot 0.4 = 0.000098&
+\end{align}
+
+This gives:
+
+\begin{align}
+	&p(L=1, S=1, I=0)\\
+	&= 0.00567 + 0.00504 + 0.000063 +0.000063 + 0.0021 + 0.000098 = 0.013034
+\end{align}
+
+We can now evaluate $p(L=1, S=1)$ as:
+
+\begin{align}
+	p(L=1, S=1) = \sum_I p(L=I, S=I, I) = 0.1842528 + 0.013034 = 0.1972868
+\end{align}
+
+Finally, we can now evaluate $p(I=1 \mid L=1, S = 1)$:
+
+\begin{align}
+	p(I=1 \mid L=1, S = 1) = \frac{p(L=1, S=1, I=1)}{p(L=1, S=1)} = \frac{0.1842528}{0.1972868} = 0.9339337451872097
+\end{align}
+
+Therefore we have $p(I=1 \mid L=1, S = 1) \approx 0.934$.
+
+% TODO: round before?
+
+\subsection{2}
+
+The graph was converted to a moral graph, using the guidelines from Section 8.3.4 of PRML. Since there is only one node with multiple parents, the only changes are removing the arrow from the links in the original graph and adding a link between "Difficulty" and "Intelligence". The created moral graph can be seen in \autoref{fig:undirected}.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.7\linewidth]{undirected.drawio}
+	\caption{The student network converted to a moral graph.}
+	\label{fig:undirected}
+\end{figure}
+
+The Maximal cliques are $\{D, I, G\}$, $\{G, L\}$, $\{I, S\}$, and the associated potentials, obtained by multiplying the factors of the factorization into cliques containing all used variables are:
+
+\begin{align}
+	\psi_{D,I,G}(D,I,G) &= p(D)p(I)p(G \mid D,I)\\
+	\psi_{G,L}(G,L) &= p(L \mid G)\\
+	\psi_{I,S}(I,S) &= p(S \mid I)
+\end{align}
+
+\subsection{3}
+\subsubsection{Sum-Product}
+
+The message from a variable node to a factor node is the product of incoming messages to the variable node, except the message from the factor node the message is to be sent to. The variable node \textit{I} is connected to the factor nodes $f_y$, $f_c$, and $f_a$. The message sent from \textit{I} to $f_a$, $\mu_{I \to f_a}(I)$ is therefore:
+
+\begin{align}
+	\mu_{I \to f_a}(I) &= \mu_{f_y \to I}(I) \cdot \mu_{f_c \to I}(I)\\
+	&= \begin{array}{c|c}
+		I & p(I)\\
+		\hline
+		0 & 0.7\\
+		1 & 0.3
+	\end{array} \cdot \begin{array}{c|c}
+	I & \mu_{f_c \to I}(I)\\
+	\hline
+	0 & 1\\
+	1 & 1
+\end{array} \\
+	&= \begin{array}{c|c}
+		I & \mu_{I \to f_a}(I)\\
+		\hline
+		0 & 0.7\\
+		1 & 0.3
+	\end{array}
+\end{align}
+
+The message from a factor node to a variable node is the result of taking product of incoming messages, except for the message from the node the message is to be sent to, multiplying it by the function associated with the factor node, and then marginalizing out all variable nodes the factor node is dependent on, except the node the message is to sent to. The factor node $f_a$ depends on the variable nodes \textit{D}, \textit{I}, and \textit{G}, the function associated with the factor node is $f_a(D, I, G) = p(G \mid D, I)$. The message sent from $f_a$ to \textit{G} is therefore:
+
+\begin{align}
+	\mu_{f_a \to G}(G) &= \sum_D \sum_I f_a(D, I, G) \cdot \mu_{D \to f_a}(D) \cdot \mu_{I \to f_a}(I)\\
+	&= \sum_D \sum_I \begin{array}{ccc|c}
+		D & I & G & p(G \mid D, I)\\
+		\hline
+		0 & 0 & 1 & 0.3\\
+		0 & 0 & 2 & 0.4\\
+		0 & 0 & 3 & 0.3\\
+		0 & 1 & 1 & 0.9\\
+		0 & 1 & 2 & 0.08\\
+		0 & 1 & 3 & 0.02\\
+		1 & 0 & 1 & 0.05\\
+		1 & 0 & 2 & 0.25\\
+		1 & 0 & 3 & 0.7\\
+		1 & 1 & 1 & 0.5\\
+		1 & 1 & 2 & 0.3\\
+		1 & 1 & 3 & 0.2\\
+	\end{array} \cdot \begin{array}{c|c}
+		D & p(D)\\
+		\hline
+		0 & 0.6\\
+		1 & 0.4
+	\end{array} \cdot \begin{array}{c|c}
+		I & \mu_{I \to f_a}(I)\\
+		\hline
+		0 & 0.7\\
+		1 & 0.3
+	\end{array}\\
+	&= \sum_D \sum_I \begin{array}{ccc|c}
+		D & I & G & p(G \mid D, I) \cdot p(D) \cdot \mu_{I \to f_a}(I) \\
+		\hline
+		0 & 0 & 1 & 0.3 \cdot 0.42 = 0.126\\
+		0 & 0 & 2 & 0.4 \cdot 0.42 = 0.168\\
+		0 & 0 & 3 & 0.3 \cdot 0.42 = 0.126\\
+		0 & 1 & 1 & 0.9 \cdot 0.18 = 0.162\\
+		0 & 1 & 2 & 0.08 \cdot 0.18 = 0.0144\\
+		0 & 1 & 3 & 0.02 \cdot 0.18 = 0.0036\\
+		1 & 0 & 1 & 0.05 \cdot 0.28 = 0.014\\
+		1 & 0 & 2 & 0.25 \cdot 0.28 = 0.07\\
+		1 & 0 & 3 & 0.7 \cdot 0.28 = 0.196\\
+		1 & 1 & 1 & 0.5 \cdot 0.12 = 0.06\\
+		1 & 1 & 2 & 0.3 \cdot 0.12 = 0.036\\
+		1 & 1 & 3 & 0.2 \cdot 0.12 = 0.024\\
+	\end{array}\\
+	&= \begin{array}{c|c}
+		G & \mu_{f_a \to G}(G)\\
+		\hline
+		1 & 0.126 + 0.162 + 0.014 + 0.06 = 0.362\\
+		2 & 0.168 + 0.0144 + 0.07 + 0.036 = 0.2884\\
+		3 & 0.126 + 0.0036 + 0.196 + 0.024 = 0.3496\\
+	\end{array}
+\end{align}
+
+Similarly, the message sent from $f_a$ to \textit{D} is therefore:
+
+\begin{align}
+	\mu_{f_a \to D}(D) &= \sum_I \sum_G f_a(D, I, G) \cdot \mu_{I \to f_a}(D) \cdot \mu_{G \to f_a}(I)\\
+	&= \sum_D \sum_I \begin{array}{ccc|c}
+		D & I & G & p(G \mid D, I)\\
+		\hline
+		0 & 0 & 1 & 0.3\\
+		0 & 0 & 2 & 0.4\\
+		0 & 0 & 3 & 0.3\\
+		0 & 1 & 1 & 0.9\\
+		0 & 1 & 2 & 0.08\\
+		0 & 1 & 3 & 0.02\\
+		1 & 0 & 1 & 0.05\\
+		1 & 0 & 2 & 0.25\\
+		1 & 0 & 3 & 0.7\\
+		1 & 1 & 1 & 0.5\\
+		1 & 1 & 2 & 0.3\\
+		1 & 1 & 3 & 0.2\\
+	\end{array} \cdot \begin{array}{c|c}
+		I & \mu_{I \to f_a}(I)\\
+		\hline
+		0 & 0.7\\
+		1 & 0.3
+	\end{array} \cdot \begin{array}{c|c}
+		G & \mu_{f_b \to G}(G)\\
+		\hline
+		1 & 1\\
+		2 & 1\\
+		3 & 1
+	\end{array}\\
+	&= \sum_D \sum_I \begin{array}{ccc|c}
+		D & I & G & p(G \mid D, I) \cdot \mu_{I \to f_a}(I) \cdot \mu_{f_b \to G}(G) \\
+		\hline
+		0 & 0 & 1 & 0.3 \cdot 0.7 = 0.21\\
+		0 & 0 & 2 & 0.4 \cdot 0.7 = 0.28\\
+		0 & 0 & 3 & 0.3 \cdot 0.7 = 0.21\\
+		0 & 1 & 1 & 0.9 \cdot 0.3 = 0.27\\
+		0 & 1 & 2 & 0.08 \cdot 0.3 = 0.024\\
+		0 & 1 & 3 & 0.02 \cdot 0.3 = 0.006\\
+		1 & 0 & 1 & 0.05 \cdot 0.7 = 0.035\\
+		1 & 0 & 2 & 0.25 \cdot 0.7 = 0.175\\
+		1 & 0 & 3 & 0.7 \cdot 0.7 = 0.49\\
+		1 & 1 & 1 & 0.5 \cdot 0.3 = 0.15\\
+		1 & 1 & 2 & 0.3 \cdot 0.3 = 0.09\\
+		1 & 1 & 3 & 0.2 \cdot 0.3 = 0.06\\
+	\end{array}\\
+	&= \begin{array}{c|c}
+		D & \mu_{f_a \to D}(D)\\
+		\hline
+		0 & 0.21 + 0.28 + 0.21 + 0.27 + 0.024 + 0.006 = 1\\
+		1 & 0.035 + 0.175 + 0.49 + 0.15 + 0.09 + 0.06 = 1\\
+	\end{array}
+\end{align}
+
+Since \textit{D} is only connected to $f_a$ and $f_x$, the message it sends to $f_x$ is just the message it receives from $f_a$. Therefore we have:
+
+\begin{align}
+	\mu_{D \to f_x}(D) = \mu_{f_a \to D}(D) = \begin{array}{c|c}
+		D & \mu_{f_a \to D}(D)\\
+		\hline
+		0 & 1\\
+		1 & 1\\
+	\end{array}
+\end{align}
+
+The marginal probabilities $p(D)$ and $p(I)$ are already known. We can now calculate the rest of the marginal probabilities using Equation 8.63 of PRML:
+
+\begin{align}
+	p(S) &= \mu_{f_c \to S}(S) = \begin{array}{c|c}
+		S & \mu_{f_c \to S}(S)\\
+		\hline
+		0 & 0.725\\
+		1 & 0.275\\
+	\end{array}\\
+	p(G) &= \mu_{f_a \to G}(G) \cdot \mu_{f_b \to G}(G) 
+	= \begin{array}{c|c}
+		G & \mu_{f_a \to G}(G)\\
+		\hline
+		1 & 0.362\\
+		2 & 0.2884\\
+		3 & 0.3496\\
+	\end{array} \cdot \begin{array}{c|c}
+		G & \mu_{f_b \to G}(G)\\
+		\hline
+		1 & 1\\
+		2 & 1\\
+		3 & 1
+	\end{array} = \begin{array}{c|c}
+		G & p(G)\\
+		\hline
+		1 & 0.362\\
+		2 & 0.2884\\
+		3 & 0.3496\\
+	\end{array}\\
+	p(L) &= \mu_{f_b \to L}(L) = \begin{array}{c|c}
+		L & \mu_{f_b \to L}(L)\\
+		\hline
+		0 & 0.497664\\
+		1 & 0.502336\\
+	\end{array}
+\end{align}
+
+\subsubsection{Max-Sum}
+
+The messages sent by the Max-Sum algorithm are computed using Equation 8.93 and 8.94 of PRML.
+
+The variable node \textit{I} is connected to the factor nodes $f_y$, $f_c$, and $f_a$. The message sent from \textit{I} to $f_a$ is therefore:
+
+\begin{align}
+	\mu_{I \to f_a}(I) &= \mu_{f_y \to I}(I) + \mu_{f_c \to I}(I) = \begin{array}{c|c}
+		I & \mu_{f_y \to I}(I)\\
+		\hline
+		0 & \ln 0.7\\
+		1 & \ln 0.3\\
+	\end{array} + \begin{array}{c|c}
+		I & \mu_{f_c \to I}(I)\\
+		\hline
+		0 & \ln 0.95\\
+		1 & \ln 0.8\\
+	\end{array} = \begin{array}{c|c}
+		I & \mu_{I \to f_a}(I)\\
+		\hline
+		0 & \ln 0.665\\
+		1 & \ln 0.24\\
+	\end{array}\\
+	&\approx \begin{array}{c|c}
+		I & \mu_{I \to f_a}(I)\\
+		\hline
+		0 & -0.408\\
+		1 & -1.427\\
+	\end{array}
+\end{align}
+
+The factor node $f_a$ is connected to the variable nodes \textit{D}, \textit{I}, and \textit{G} and its associated function is $f_a(D, I, G) = p(G \mid D, I)$. The message sent from $f_a$ to \textit{G} is therefore:
+
+\begin{align}
+	\mu_{f_a \to G}(G)
+	&= \max_{D, I} \left(\ln f_a(D, I , G) + \mu_{D \to f_a}(D) + \mu_{I \to f_a}(I) \right)\\
+	&= \max_{D, I} \left(\begin{array}{ccc|c}
+		D & I & G & \ln p(G \mid D, I)\\
+		\hline
+		0 & 0 & 1 & \ln 0.3\\
+		0 & 0 & 2 & \ln 0.4\\
+		0 & 0 & 3 & \ln 0.3\\
+		0 & 1 & 1 & \ln 0.9\\
+		0 & 1 & 2 & \ln 0.08\\
+		0 & 1 & 3 & \ln 0.02\\
+		1 & 0 & 1 & \ln 0.05\\
+		1 & 0 & 2 & \ln 0.25\\
+		1 & 0 & 3 & \ln 0.7\\
+		1 & 1 & 1 & \ln 0.5\\
+		1 & 1 & 2 & \ln 0.3\\
+		1 & 1 & 3 & \ln 0.2\\
+	\end{array} + \begin{array}{c|c}
+		D & \mu_{D \to f_a}(D)\\
+		\hline
+		0 & \ln 0.6\\
+		1 & \ln 0.4\\
+	\end{array} + \begin{array}{c|c}
+		I & \mu_{I \to f_a}(I)\\
+		\hline
+		0 & \ln 0.665\\
+		1 & \ln 0.24\\
+	\end{array} \right)
+	\\
+	&= \max_{D, I} \left(\begin{array}{ccc|c}
+		D & I & G & \ln p(G \mid D, I) + \mu_{D \to f_a}(D) + \mu_{I \to f_a}(I)\\
+		\hline
+		0 & 0 & 1 & \ln (0.3 \cdot 0.399) = \ln 0.1197\\
+		0 & 0 & 2 & \ln (0.4 \cdot 0.399) = \ln 0.1596\\
+		0 & 0 & 3 & \ln (0.3 \cdot 0.399) = \ln 0.1197\\
+		0 & 1 & 1 & \ln (0.9 \cdot 0.144) = \ln 0.1296\\
+		0 & 1 & 2 & \ln (0.08 \cdot 0.144) = \ln 0.01152\\
+		0 & 1 & 3 & \ln (0.02 \cdot 0.144) = \ln 0.00288\\
+		1 & 0 & 1 & \ln (0.05 \cdot 0.266) = \ln 0.0133\\
+		1 & 0 & 2 & \ln (0.25 \cdot 0.266) = \ln 0.0665\\
+		1 & 0 & 3 & \ln (0.7 \cdot 0.266) = \ln 0.1862\\
+		1 & 1 & 1 & \ln (0.5 \cdot 0.096) = \ln 0.048\\
+		1 & 1 & 2 & \ln (0.3 \cdot 0.096) = \ln 0.0288\\
+		1 & 1 & 3 & \ln (0.2 \cdot 0.096) = \ln 0.0192\\
+	\end{array}\right)\\
+	&= \begin{array}{c|c|c|c}
+		G & \mu_{f_a \to G}(G) & \arg \max_D & \arg \max_I \\
+		\hline
+		1 & \ln 0.1296 & 0 & 1\\
+		2 & \ln 0.1596 & 0 & 0\\
+		3 & \ln 0.1862 & 1 & 0\\
+	\end{array}\\
+	&\approx \begin{array}{c|c|c|c}
+		G & \mu_{f_a \to G}(G) & \arg \max_D & \arg \max_I \\
+		\hline
+		1 & -2.043 & 0 & 1\\
+		2 & -1.835 & 0 & 0\\
+		3 & -1.681 & 1 & 0\\
+	\end{array}\label{eq3}
+\end{align}
+
+To find the most likely configuration, we first see that $L^{\max} = \arg \max_L \mu_{f_b \to L}(L) = 0$. From the message $\mu_{f_b \to L}(L)$ then see that $G^{\max} = 3$. Backtracking to the result in \autoref{eq3} we then see that $D^{\max} = 1$ and $I^{\max} = 0$. Finally from the message $\mu_{f_c \to I}(I)$ we get $S^{\max} = 0$. The probability of this configuration can be calculated using the message $\mu_{f_b \to L}(L)$ and is $p(L=0, G=3, D=1, I=0, S=0) = \exp (\mu_{f_b \to L}(L=0)) \approx 0.184$.
+
+
+\section{Combining multiple learners}
+
+\subsection{1}
+The dataset was loaded and split into training, validation, and test sets. The split is done randomly, with splitting ratios of 80\% training data, 10\% validation data, and 10\% test data. This split was chosen, first of all, because it is a very common split used in machine learning in general, but also because the dataset seemed to be sufficiently large to accommodate such a split. For small datasets 10\% validation and testing data might not be enough data to sufficiently represent the variance of the whole dataset. However, in this case the dataset consists of 4601 samples, resulting in test and validation sets of about 460 samples, which should be plenty.
+
+The split was done by first using the function \texttt{train\_test\_split} to split into a combined training and validation set, and a test set. Next, a scikit-learn \texttt{PredefinedSplit} was created to identify the separate training and validation sets, and enable the use of the scikit-learn class \texttt{GridSearchCV}. \texttt{GridSearchCV} normally uses cross-validation but with this method it can be forced to use a fixed validation set instead, as required by the assignment.
+
+
+\subsection{2}
+
+\subsubsection{Training and choice of hyper parameters}
+
+For all 3 models, hyper parameters were selected using the validation data and the \texttt{GridSearchCV} class from scikit-learn. This fits models to the training data using all combinations of parameters from a dictionary of parameter values and selects the combination of parameters with the best performance on the validation data. This is a more structured approach than just manually trying a lot of different configurations, but may increase the risk of over-fitting to the validation data, since so many different configurations can be tried. A way to reduce this risk may be to use cross validation instead, so that more data influences the choice of hyper parameters.
+
+Once the best set of hyper parameters has been identified, the model is then retrained using both the training and validation data, before being evaluated on the test data.
+
+The hyper parameters considered for the decision tree classifier were the "criterion", for which "gini" and "entropy" were considered, "splitter", for which "best" and "random" were considered, "max\_features", for which "None", "sqrt", and "log2" were considered, and finally "max\_depth" of the trees, for which "None" and all integers between 1 and 30 were considered.
+
+For the bagging and boosting models, values of $B$ and $M$ in the range 1-200 were considered, along with the previously mentioned parameters for the base learners. The considered values of "max\_depth" were however limited, both to limit training time, and to ensure that the base learners used were relatively "weak". Using larger values of "max\_depth" also caused problems in the AdaBoost implementation, as very deep trees are able to fit the training data perfectly, causing a division by 0 in the calculation of model weights.
+
+%\subsubsection{(a), (b), (c)}
+
+\subsubsection{(a)}
+
+The decision tree classifier implementation of scikit-learn was used as the basic classification tree method.
+
+\subsubsection{(b)}
+
+The implementation of bagging was based on Equation 8.51 of ESL, and the description of nonparametric bootstrapping on page 264 of ESL. To fit the model, $B$ bootstrap datasets of the same size as the original dataset are created using nonparametric bootstrapping, that is by drawing random samples with replacement from the original dataset. A separate decision tree classifier from (a) is then fit to each of these $B$ datasets, giving $B$ fitted models.
+
+Predictions are made by averaging the result of the \texttt{predict\_proba} method of each of the $B$ decision tree classifiers, and then outputting the label with the heighest average probability. This should give better results than voting based on 0-1 classifications, since using \texttt{predict\_proba} essentially has the effect of weighting votes based on certainty.	
+
+\subsubsection{(c)}
+
+The boosting implementation was based on the description of Adaboost.M1 in Algorithm 10.1 in ESL.
+
+To fit the model the sample weights are first initialized to all be $\frac{1}{N}$, $N$ being the dataset size. Then, sequentially, $M$ decision tree classifiers are trained, by fitting a decision tree classifiers $m$ to the data using the current sample weights, calculating the weight $\alpha_m$ to be assigned to this models predictions, and finally calculating the sample weights to be used in the next iteration, before repeating the process.
+
+Predictions are then made by taking the weighted sum of predictions for each of the $M$ decision tree classifiers using the model weights $\alpha_m$, and outputting the sign of this as the prediction. Since the algorithm assumes the individual estimators output labels as -1 or 1, but the scikit-learn decision tree classifiers output 0 or 1, this is corrected for by making use of the fact that $0 \cdot 2 - 1 = -1$ and $1 \cdot 2 - 1 = 1$.
+
+\subsubsection{Results}
+
+\begin{figure}[h]
+	\centering
+	\caption{Results}
+	\label{results}
+	\begin{tabular}{|c||c|c|c|}
+		\hline
+		& Decision tree classifier & Bagging & AdaBoost.M1 \\
+		\hline\hline
+		Splitter & Best & Best & Best \\
+		\hline
+		Criterion & Entropy & Entropy & Gini \\
+		\hline
+		Max features & log2 & log2 & sqrt \\
+		\hline
+		Max depth & 21 & 12 & 8 \\
+		\hline
+		$B$/$M$& - & $B=12$ & $M=160$ \\
+		\hline\hline
+		Training accuracy & 98.76\% & 96.98\% & 99.97\% \\
+		\hline
+		Validation accuracy & 94.04\% & 95.18\% & 97.48\% \\
+		\hline
+		Test accuracy & 92.19\% & 93.28\% & 94.79\% \\
+		\hline
+	\end{tabular}
+\end{figure}
+
+
+The best parameters found during grid search and the resulting accuracies for each model can be seen in \autoref{results}.
+
+As can be seen in the table, AdaBoost.M1 gave the best results, followed by bagging, and finally the simple decision tree classifier.
+It should however be noted that the simple decision tree classifier was allowed larger tree depths, and would have performed worse with the same restrictions on tree depth applied to the other models.
+
+The results shown were the best results found for a particular random seed, but it should also be noted here that this randomness seemed to influence the results and best found parameters, and especially the "criterion" and "max\_features" parameters had no clear cut best value. For more robust results, more random seeds could be added to the parameter lists, so that not only one seed is considered, but this would of course increase running times. Such added flexibility of the hyper parameters may also increase the risk of over-fitting to the validation data, and not necessarily increase test accuracy.
+
+As expected, the results show that the simplest model, the decision tree classifier, performs the worst, even when allowed larger tree depths. The bagging approach improves this performance, seemingly by improving on the generalisability of the model, since this model has a worse training accuracy, but a larger validation and testing accuracy. Finally, using boosting improves upon all measures of accuracy, and allows for an almost perfect fit to the training data, while also giving high performance on unseen data. This is likely caused by AdaBoosts ability to train base learners specifically for data points that are otherwise hard to classify correctly for these base learners when no weighting is used.
+
+
+\appendix
+
+\section{Appendix}
+\subsection{Code}
+
+\inputminted{python}{src/spam.py}
+
+
+\end{document}

@@ -1,0 +1,514 @@
+\documentclass[a4paper, 12pt]{article}
+
+\usepackage{cmap}
+\usepackage[T1]{fontenc}
+\usepackage[utf8x]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage[all]{hypcap}
+\usepackage{float}
+\usepackage[margin=1in]{geometry}
+\usepackage[outputdir=build]{minted}
+%\usepackage{pdfpages}
+\usepackage{csquotes}
+
+
+\usepackage[english, science, small]{ku-frontpage}
+
+\usepackage{parskip}
+
+\usepackage[makeroom]{cancel}
+\newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+%\setlength\arraycolsep{2 pt}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{0}
+
+\setminted[python]{linenos,autogobble,fontsize=\scriptsize}
+
+\graphicspath{{media/}}
+
+\assignment{}
+\author{Rune Ejnar Bang Lejbølle}
+\title{Exercise 3}
+\subtitle{Elements of Machine Learning}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Preprocessing, designing network and experiments}
+\subsection{1.}
+
+In order to ensure that the created model generalizes well to unseen data, in particular the test set, I first of all split the given labeled data into a train, validation, and test set, using splits of 80\%, 10\%, and 10\%, respectively. The validation set will be used to select hyperparameters, and can also be used to do early stopping while training the network to avoid overfitting. The test set will be used in the end to get a more realistic estimate of how well the model generalizes. Here it is better to use a separate test set rather than the validation set, as the model could also have overfit to the validation set.
+
+Additionally, I will also augment the given data by adding transforming the images randomly, and using these transformed images as new training data. This should increase the generalization of the model, by reducing the risk of overfitting to the training data, and by increasing the variance of the training data.
+
+\subsection{2.}
+The images used for training can be seen in \hyperref[fig:screenshot001]{the appendix}. Here both the full images, and the separate color channels are visualized. Looking at the individual channels, it can be noted that there is not much signal in the blue channel, compared to the other two channels. Interestingly, it seems like the green channel may actually be the single channel where the blood vessels are the clearest, while the red channel may actually be the one with the most noise.
+
+In order to use these images to train a good model, some preprocessing of the pictures needs to be done. First of all the images must be loaded, and converted to a format that can be input to the model. This will be done using the Python libraries \texttt{PIL} and \texttt{torchvision}. The \texttt{Image} constructor of \texttt{PIL} is used to load the images, while the function \texttt{ToTensor()} from \texttt{torchvision} is used to convert the images into tensors that can be input to the model.
+
+As stated in 1., augmenting the data may also be a form of preprocessing that can increase the quality of the model, in particular its ability to generalize. 
+
+The augmentation will be done by creating a Pytorch \texttt{Dataset}, which, when the \texttt{\_\_getitem\_\_} function is called, takes an image from the base dataset and applies random transformations to it. The forms of transformation used are: flipping the image horizontally, rotating the image, and adjusting the brightness, contrast, and saturation of the image. The transformations were chosen because they resulted in pictures that resembled the original training data. When flipping and rotating the images, the target is also transformed similarly, but with the other transformations, the target was left unchanged, since these kinds of transformations should ideally not change the output of the model. The flipping was done with 0.5\% chance, the rotating was done by drawing an angle from a uniform distribution over all possible angles, while the other transformations were based on a normal distribution, such that most random samples would resemble the original samples closely.
+
+I also considered whether or not to augment the validation data. On one hand, augmenting would give more samples to use for validation and, perhaps enable a better estimate of the models performance on unseen data. On the other hand, one of the major uses of the validation data is to enable the tuning of hyperparameters, which includes the type of augmentations used. Ideally, I would like to be able to ensure that the augmentation causes the model to generalize well to unseen data, but I can't check this using validation data augmented in the same way, as this then implicitly assumes that the augmentation does indeed generalize well. I ended up deciding to only augment the validation using flips and rotations, since I was confident in assuming that such transformations did indeed represent real variations in the data.
+
+Finally, the mean and standard deviation of the separate channels were calculated, such that the data can be normalized before being passed through the model.
+
+\subsection{3.}
+
+Since the input in this task is images of fairly high resolution, some form of convolutional neural network would be suitable, since these networks have proven to be great at image processing, by being mostly invariant to translation, and by fewer weights than a regular fully connected network.
+
+Specifically, the \textit{Unet} has been proven as a great architecture for image segmentation, and I will therefore use this architecture for my solution. I will use the illustration of the Unet presented in Slide 55 of "Bruijne\_KU-EML\_CNN\_21.pdf" as a general guideline.
+
+With this base architecture, there are still many possible variations. I will try varying depths, and the amount of channels after the first layer, but stick to the general guideline of doubling the number of channels after each downsampling of the input, and similarly halving after upsampling. I will also stick to the having 2 convolutional layers between down and upsampling, as shown in the illustration. I will do downsampling using maxpooling and upsampling using up-convolution, as shown in the illustration, or billinear upsampling. In the illustration cropping and valid convolutions are used, but since I want the output image to be the same size as the input, I will not use cropping and instead use "same"-convolutions. I will use the same kernel sizes as shown in the illustration.
+
+I will use a sigmoid as the final activation function since I want predictions to be between $0$ and $1$, but between layers I will use the ReLU activation function.
+I will also be using \texttt{BatchNorm} between convolutional layers for greater stability among batches.
+
+As I will describe more in 9. I will try using both Binary Cross Entropy Loss and Dice Loss as the loss function for the model.
+
+\subsection{4.}
+
+The receptive field of a neural network can be calculated using this formula\footnote{ \url{https://distill.pub/2019/computing-receptive-fields/\#solving-receptive-field-region}}:
+
+\begin{align}
+	1 + \sum_{l=1}^{L} \left((k_l - 1) \prod_{i=1}^{l - 1} s_i\right)
+\end{align}
+
+Where $L$ is the number of layers, $k_l$ is the kernel size of the $l$'th layer, and $s_i$ is the stride of the $i$'th layer. 
+
+This formula can be used to calculate the receptive field of the contracting path of the network in one dimension, and the value can then be squared to get the value for the 2-dimensional image input
+The layers used on the contracting path come in groups consisting of pairs of convolutions with a kernel size of 3 and stride 1, and max-pooling using kernel size 2 and stride 2. There are 5 such groups, a long with two additional convolutional layers of kernel size 3 and stride 1 in the middle of the network, before the network expands again. From the above formula, we can see that the terms of the sum from the first group of two convolutions followed by max pooling will be $2 + 2 + 1 = 5$, since for these layers $\prod_{i=1}^{l - 1} s_i$ will always be 1. For the next group we will have $\prod_{i=1}^{l - 1} s_i = 2$, then $4$ and so on, since another layer of stride $2$ is added with each group. We can therefore express the sum as:
+
+\begin{align}
+	1 + 5 \cdot 1 + 5 \cdot 2 + 5 \cdot 4 + 5 \cdot 8 + 5 \cdot 16 + 2 \cdot 32 + 2 \cdot 32 = 284
+\end{align}
+
+Therefore, the receptive field for the contracting path of the network is $284 \cdot 284 = 80656$.
+
+This is less than the amount of pixels in the images, but when the expanding path is also taken into account, the receptive field will be more than the amount of pixels in the image, meaning that a pixel of the output can potentially be influenced by all of the input pixels. 
+
+\subsection{5.}
+
+An obvious method of simplifying the problem, in order to reduce the training time, would be to reduce the size of the input. This could be done in multiple ways. 
+
+One way could be to not use all of the channels of the images. From the results of 2., it seems like the red and green channel, or even just the green channel, could have enough information to do the segmentation. This would reduce the input size by one or 2 thirds. However, in a convolutional neural network, this would only directly influence the size of the first layer, so in a deep network it might not make much difference. A drawback of this method would of course be the loss of information in the channels that are left out, which may make it harder to make good predictions. However, this is only a drawback if there is more useful information than noise in these channels. 
+
+Through experimenting I found that only using the green channel actually seemed to decrease both the training and validation loss quite significantly, and i therefore choose to only use this channel for predictions. It seems like the reason for this major boost in performance are pictures like "2\_training.tif" where a large part of the red channel contains no useful information at all, perhaps due to having reached some maximum threshold of a sensor.
+
+A way to substantially reduce the size of both the input and the overall neural network, would be to reduce the resolution of the input, either by downsampling or cropping. The reduced resolution of the input would, in a typical convolutional neural network reduce the size of all layers in the network, and could therefore provide a significant reduction of training time. If we know that not all parts of the input images contain data that need segmentation, this could be done without drawbacks. For the given images it does actually seem like the are regions of the images that never contain data to be segmented. However, these areas are quite small. Cropping further would make the model unable to do segmentation on the cropped away areas, so this could cause significantly worse results. Downsampling (and subsequent upsampling of predictions), on the other hand, would make the models segmentation less precise, and therefore decrease the performance of the model.
+
+Another way to reduce computation times without reducing the input size would be to use simpler models, but this would of course limit our ability to obtain high quality predictions.
+
+The use of hardware acceleration can also be seen as a way to reduce computation, but of course requires that one has access to the necessary hardware.
+
+\section{Implementation, training, and analysis }
+
+\subsection{6.}
+
+The network was implemented and trained on the augmented input data. To simplify the definition of the network, I created a function, \texttt{block}, for creating the basic blocks of convolutional layers consisting of convolution, batch norm and an activation function.
+
+To make the implementation even more readable I used the \texttt{nn.Sequential} class heavily since this simplifies the definition of networks significantly, and abstracts away the details of how the input is forwarded. However, as the name suggests, this can only connect modules sequentially, and does not on its own enable skip connections as needed in the Unet. To get around this, I implemented the class \texttt{SkipConnection}, which, given a list of \texttt{nn.Module}s, connects these sequentially using \texttt{nn.Sequential}, and then in the forward pass passes the input to these modules, and outputs the output of these modules concatenated with the original input. This has the effect of creating a skip connection between the module before and after the \texttt{SkipConnection} module and its contained modules. By nesting these \texttt{SkipConnection} modules, the Unet can be expressed in a fairly simple and readable way, as seen in \autoref{code1}. Here a very small Unet is defined, with only one layer of downsampling and upsampling.
+
+\begin{listing}[H]
+	\begin{minted}{python}
+		model = nn.Sequential(
+			transforms.Normalize(base_data_train.X_mean[1], base_data_train.X_std[1]),
+			
+			block(nn.ReLU, in_channels=1, out_channels=32, kernel_size=3, padding='same'),
+			block(nn.ReLU, in_channels=32, out_channels=32, kernel_size=3, padding='same'),
+			SkipConnection(
+				nn.MaxPool2d(2),
+				block(nn.ReLU, in_channels=32, out_channels=64, kernel_size=3, padding='same'),
+				block(nn.ReLU, in_channels=64, out_channels=64, kernel_size=3, padding='same'),
+				nn.ConvTranspose2d(in_channels=64, out_channels=64, kernel_size=2, stride=2,
+				                   output_padding=(input_height % 2, input_width % 2)),
+			),
+			block(nn.ReLU, in_channels=32+64, out_channels=32, kernel_size=3, padding='same'),
+			block(nn.ReLU, in_channels=32, out_channels=32, kernel_size=3, padding='same'),
+			
+			nn.Conv2d(in_channels=32, out_channels=1, kernel_size=1, padding='same'),
+			nn.Sigmoid(),
+		)
+	\end{minted}
+	\caption{Example of how to define a very small Unet.}
+	\label{code1}
+\end{listing}
+
+The Sequence starts by normalizing the data using the previously calculated mean and standard deviation. Next are two blocks of convolution, batch norm and activation, as explained above. Then a skip connection is added, before the channels are downsampled using max pooling, and passed two another 2 blocks. After these, the channels are upsampled using \texttt{nn.ConvTranspose2d}. Since the input isn't perfectly square, some care was needed to ensure that dimensions are the same after downsampling and subsequent upsampling. This is handled by adding padding in the up-convolutions if the target width or height is odd. The output of the upsampling is concatenated with the channels from the skip connection and passed on to two additional blocks. Finally a convolutional layer produces a single output channel using a kernel of size 1, and a sigmoid activation function ensures that outputs are between 0 and 1. 
+
+The final model used can be seen in the attached code and the appendix, but resembled this one closely, only with more layers and down- and upsampling, starting at 32 channels and ending at 1024 channels, giving a total of 5 max pooling layers, 5 up-convolution layers, 22 convolutional layers with a kernel size of 3, and finally the last convolutional layer of kernel size 1. This is very similar to the illustration in the slides, except for the additional layers added by starting at 32 channels instead of 64. 
+
+The final model used a batch size of 2, and was trained on a total of 2200 samples. The \texttt{Adam} optimizer was used, with a maximal learning rate of 0.001. Dice loss was used as the loss function, as will be explained in 9. Training the model took about 6 minutes on my hardware, an Nvidia RTX 2060 Mobile with 6 GB video memory.
+
+%The training loop used for the model is showed in \autoref{code2}:
+%
+%\begin{listing}[H]
+%	\begin{minted}{python}
+%        for i, (X, y) in enumerate(dataloader_train):
+%			X_len = len(X)
+%			X = X[:, [1]].to(device)
+%			
+%			optimizer.zero_grad()
+%			y_pred = model(X)
+%			del X
+%			torch.cuda.empty_cache()
+%			
+%			# Backpropagation
+%			y = y.to(device)
+%			loss = loss_fn(y_pred, y)
+%			loss.backward()
+%			optimizer.step()
+%			del y
+%			torch.cuda.empty_cache()
+%			
+%			loss_item = loss.item()
+%			pbar.update(X_len)
+%			pbar.set_postfix_str(f'train loss: {loss_item:>3f}, val loss: {loss_val:>3f}')
+%			losses_train.append(loss_item)
+%			
+%			if (i * batch_size) % epoch_size == 0:
+%				model.eval()
+%				for i, (X, y) in enumerate(dataloader_val):
+%					with torch.no_grad():
+%						X = X[:, [1]].to(device)
+%						y_pred = model(X)
+%						del X
+%						torch.cuda.empty_cache()
+%						
+%						y = y.to(device)
+%						loss = loss_fn(y_pred, y)
+%						del y
+%						torch.cuda.empty_cache()
+%						
+%						loss_item = loss.item()
+%						loss_val = loss_item
+%						losses_val.append(loss_item)
+%				model.train()
+%	\end{minted}
+%	\caption{Example of how to define a very small Unet.}
+%	\label{code2}
+%\end{listing}
+%
+%This 
+
+% TODO: more description of final model? optimizer
+
+\subsection{7.}
+
+\autoref{fig:screenshot005} shows how loss evolves during training, when using a total of 2200 samples for training. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot005}
+	\caption{Changes in loss during training with a dataset of 2200 samples.}
+	\label{fig:screenshot005}
+\end{figure}
+
+Using only 220 samples instead, as seen in \autoref{fig:screenshot006} it is clear that the loss has not stabilized yet, and we should therefore preferably use more data than this. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot006}
+	\caption{Changes in loss during training with a dataset of 220 samples.}
+	\label{fig:screenshot006}
+\end{figure}
+
+The fact that the performance on the validation data and the performance on training data are so similar seems to indicate that there is enough training data to make a good general model, but this of course depends very much on ones definition of "good". The model does not seem to overfit since the validation loss does not diverge from the training loss, and both training and validation loss are quite low. The use of augmentation likely plays a large role here, as the model likely never sees the exact same picture twice. It is therefore very unlikely that it can overfit to the underlying unaugmented data, and it is instead forced to be able to generalize well.
+
+\subsection{8.}
+
+As pointed out in 7. the model does not seem to overfit, and since it does not fit the data perfectly, it must instead be underfitting. As stated earlier, this can be seen by the similarity of performance with training and validation data, and by the fact that the validation performance does not seem to diverge from the training performance during training.
+
+To force the model to overfit, one may be able create a very complex model that can somehow overfit to the original dataset, even when only presented with randomly augmented data. I was, however, not able to create such a model. Another way to force the model to overfit, is to disable the random augmentation of the training data. The result of this, can be seen in \autoref{fig:screenshot007}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot007}
+	\caption{Changes in loss during training without augmenting the training data.}
+	\label{fig:screenshot007}
+\end{figure}
+
+Here it is clear that the model starts to overfit after around 500 samples, since the curves of the training and test loss start to separate here. Compared to \autoref{fig:screenshot005}, this really shows the value of augmenting the training data.
+
+
+\subsection{9.}
+
+One loss function suitable for this problem is Binary Cross Entropy Loss. This seems to be widely regarded as the go-to loss function for binary classification, and in fact it is fairly hard to find other examples of loss functions specifically for binary classification by googling. Since the problem at hand can be seen as a binary classification of each pixel, binary cross entropy loss should be able to give good results. Binary cross entropy loss can be calculated using the following formula:
+
+\begin{align}
+	L(y, p) = -(y \log(p) + (1 - y) \log(1-p))
+\end{align}
+
+Where $y$ is the actual label, and $p$ is the predicted probability that $y=1$.
+
+Another possible loss function is the Dice Loss, closely related to the Dice Similarity Coefficient, also presented in the assignment text. This loss function is a way to explicitly train a model to perform well on the Dice Similarity Coefficient metric, which, as stated in the assignment text, is a common performance metric for segmentation. Additionally, it is also less sensitive to imbalance in labels compared to Binary Cross Entropy Loss. This could be important for the problem at hand, since the amount of pixels in the pictures that are labeled as blood vessels is far less than the amount that are not. Using Binary Cross Entropy would reward models for assigning low probabilities to pixels, since this will give a lower loss for the average pixel, which could yield models that do not give confident predictions, and is biased towards the "0" label.
+
+The formula I used to calculate Dice Loss is seen below, with $y$ and $p$ defined as above, and $i$ and $j$ being indexes into the matrices of labels:
+
+\begin{align}
+	L(y, p) = 1 - \frac{2 \sum_i \sum_j y_{ij} \cdot p_{ij} + 1}{\sum_i \sum_j y_{ij}^2 + \sum_i \sum_j p_{ij}^2 + 1}
+\end{align}
+
+This formula has some differences from the given definition of the Dice Similarity Coefficient. First of all, it is turned into a loss function by subtracting the coefficient from 1. The $1$ in the denominator and numerator are added for numerical stability. Finally the terms in the numerator are squared to produce nicer gradients, and better results when $p$ is continuous and not just $0$ or $1$.
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|l||c|c|}
+		\hline
+		Loss function used in training & BCE Loss & Dice Loss\\
+		\hline\hline
+		Mean BCE Loss - base training data & 0.0819 & 0.0855\\
+		\hline
+		Mean Dice Loss - base training data & 0.1662 & 0.1445\\
+		\hline
+		Mean Dice Similarity - base training data & 0.7935 & 0.8197\\
+		\hline\hline
+		Mean BCE Loss - base validation data & 0.0797 & 0.0906\\
+		\hline
+		Mean Dice Loss - base validation data & 0.1478 & 0.1414\\
+		\hline
+		Mean Dice Similarity - base validation data & 0.8145 & 0.8218\\
+		\hline
+	\end{tabular}
+	\caption{Performance of model using different loss functions in training.}
+	\label{table1}
+\end{table}
+
+The performance of the model using the two different loss functions during training can be seen in \autoref{table1}. As one might expect, using BCE Loss gives the lowest BCE Loss of the trained model, while using Dice Loss, gives the lowest Dice Loss. The differences are however quite small. Looking at the mean Dice Similarity, using Dice Loss causes a significant performance boost on the training data, but less so on the validation data. Since the model will ultimately be evaluated using Dice Similarity, Dice Loss is chosen as the loss function for the final model.
+
+\subsection{10.}
+
+I experimented with a wide range of models and hyperparameters. Some of these are presented here, but for simplicity, I will only show the results of varying one parameter at a time.
+
+Looking at the curve in \autoref{fig:screenshot005}, it seems like the model learns very quickly, relative to the total number of training samples used. Therefore, it might make sense to decrease the learning rate. The results of using a learning rate of 0.0005 can be seen in \autoref{fig:screenshot008} and \autoref{table2}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot008}
+	\caption{Changes in loss during training with a learning rate of 0.0005.}
+	\label{fig:screenshot008}
+\end{figure}
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|l||c|c|}
+		\hline
+		Hyperparameters & Learning rate = 0.001 & Learning rate = 0.0005\\
+		\hline\hline
+		Mean BCE Loss - base training data & 0.0855 & 0.1254\\
+		\hline
+		Mean Dice Loss - base training data & 0.1445 & 0.1612\\
+		\hline
+		Mean Dice Similarity - base training data & 0.8197 & 0.8181\\
+		\hline\hline
+		Mean BCE Loss - base validation data & 0.0906 & 0.1306\\
+		\hline
+		Mean Dice Loss - base validation data & 0.1414 & 0.1598\\
+		\hline
+		Mean Dice Similarity - base validation data & 0.8218 & 0.8163\\
+		\hline
+	\end{tabular}
+	\caption{Performance of model using different learning rates.}
+	\label{table2}
+\end{table}
+
+As can be seen, the model performs worse by all metrics with this change in the learning rate. One reason for this may just be that the model learns slower with this learning rate, and therefore needs to be trained on more samples to reach the same performance. This can also be seen by the fact that the loss curve is not as flat at the end as it is when using a learning rate of 0.001. Additionally, the model with the higher learning rate may also have less of a tendency to be stuck in local minima, due to its ability to take larger steps.
+
+Another hyperparameter that can be adjusted is the batch size. However do to my limited available video memory, I was only able to try batch sizes of 1 and 2. The results of this can be seen in \autoref{fig:screenshot009} and \autoref{table3}.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot009}
+	\caption{Changes in loss during training with a batch size of 1.}
+	\label{fig:screenshot009}
+\end{figure}
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|l||c|c|}
+		\hline
+		Hyperparameters & Batch size = 2 & Batch size = 1\\
+		\hline\hline
+		Mean BCE Loss - base training data & 0.0855 & 0.1124\\
+		\hline
+		Mean Dice Loss - base training data & 0.1445 & 0.1688\\
+		\hline
+		Mean Dice Similarity - base training data & 0.8197 &  0.7935\\
+		\hline\hline
+		Mean BCE Loss - base validation data & 0.0906 & 0.1214\\
+		\hline
+		Mean Dice Loss - base validation data & 0.1414 & 0.1639\\
+		\hline
+		Mean Dice Similarity - base validation data & 0.8218 & 0.8001\\
+		\hline
+	\end{tabular}
+	\caption{Performance of model using different batch sizes.}
+	\label{table3}
+\end{table}
+
+As can be seen, using a lower batch size causes greater fluctuations in the loss of the model, which may eventually be what also causes it to have worse performance in all metrics.
+
+Yet another hyperparameter that can be adjusted is the depth of the network. The result of reducing the depth of the network, such that the middle "bottleneck" layer has 512 channels instead of 1024 (but keeping all other layers fixed) can be seen below.
+
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot010}
+	\caption{Changes in loss during training with a "bottleneck" layer of 512 channels.}
+	\label{fig:screenshot010}
+\end{figure}
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|l||c|c|}
+		\hline
+		Hyperparameters & Bottleneck of 1024 channels & Bottleneck of 512 channels\\
+		\hline\hline
+		Mean BCE Loss - base training data & 0.0855 & 0.0884\\
+		\hline
+		Mean Dice Loss - base training data & 0.1445 & 0.1454\\
+		\hline
+		Mean Dice Similarity - base training data & 0.8197 & 0.8180\\
+		\hline\hline
+		Mean BCE Loss - base validation data & 0.0906 & 0.0979\\
+		\hline
+		Mean Dice Loss - base validation data & 0.1414 & 0.1465\\
+		\hline
+		Mean Dice Similarity - base validation data & 0.8218 & 0.8159\\
+		\hline
+	\end{tabular}
+	\caption{Performance of model using different depths.}
+	\label{table4}
+\end{table}
+
+From these results, it seem like the model benefits from the added flexibility caused by adding more layers.
+
+As mentioned earlier, one can also experiment with which channels to use as input data. Below, the results of using all channels instead of only the green channel can be seen:
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot011}
+	\caption{Changes in loss during training using all color channels.}
+	\label{fig:screenshot011}
+\end{figure}
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|l||c|c|}
+		\hline
+		Hyperparameters & Only green channel & All channels\\
+		\hline\hline
+		Mean BCE Loss - base training data & 0.0855 & 0.0860\\
+		\hline
+		Mean Dice Loss - base training data & 0.1445 & 0.1516\\
+		\hline
+		Mean Dice Similarity - base training data & 0.8197 & 0.8095\\
+		\hline\hline
+		Mean BCE Loss - base validation data & 0.0906 & 0.0906\\
+		\hline
+		Mean Dice Loss - base validation data & 0.1414 & 0.1471\\
+		\hline
+		Mean Dice Similarity - base validation data & 0.8218 & 0.8126\\
+		\hline
+	\end{tabular}
+	\caption{Performance of model using different color channels.}
+	\label{table5}
+\end{table}
+
+As mentioned earlier the model seems to perform worse when using all input channels, and also has very large fluctuations in training loss, likely caused by pictures with noisy red channels, such as "2\_training.tif".
+
+\section{Results evaluation and possible improvements}
+
+\subsection{11.}
+
+The final model was used to produce segmented images for the given unlabeled test data. 
+
+To get a good estimate for what the Dice Similarity Coefficient for these predictions would be, the final model was also used to segment the labeled data reserved for testing. On these 2 pictures, the average Dice Similarity Coefficient was 0.8023.
+
+One would expect the results on the unlabeled data to be similar, since this is also data that has never been used for training or validation. An example result of segmenting a test image can be seen in \autoref{fig:screenshot012}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot012}
+	\caption{Results of segmenting an image in the test set. Top left: Original image, top right: ground truth segmentation, bottom left: segmentation with continuous probabilities, bottom right: 0-1 segmentation.}
+	\label{fig:screenshot012}
+\end{figure}
+
+The segmented images seem very similar, except for some thin blood vessels that are not detected by the model. However, these are sometimes still visible in the continuous segmentation, showing that the model is just not confident enough to add them to the segmentation.
+
+An example of segmenting the unlabeled testing data can be seen in \autoref{fig:screenshot013}. The full set of segmented images was uploaded to the specified DropBox.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{screenshot013}
+	\includegraphics[width=0.4\linewidth]{screenshot014}
+	\caption{Example segmentation of the unlabeled data.}
+	\label{fig:screenshot013}
+\end{figure}
+
+
+
+\subsection{12.}
+
+From the graph shown in 7. it seems like the loss for both training and validation data decreases indefinitely with the number of training samples, although with diminishing returns. As stated earlier, no matter the amount of training samples I was not able to make the model overfit when using the randomly augmented data. Assuming this continues to hold, one simple way to improve the results would be to train for longer. However, as stated this has diminishing returns, and likely flattens totally at some point, or begins to overfit. 
+
+As the model seems to under-fit, a better way to improve the results would probably be by increasing the model complexity. This could be done by either making the model deeper or increasing kernel sizes. However, I was limited by my available video memory and therefore unable to try this without better hardware.
+
+Another thing I would have tried if I had access to better hardware would be to increase the batch size. I already saw some improvement by going from a batch size of 1 to 2, and it is possible it would be even better at larger batch sizes, as this would probably stabilize the loss and resulting gradients, which were fluctuating significantly with my batch size of 2.
+
+Another way to improve performance would probably be to put some more work into creating random augmentations of the data that accurately represents the real world variation in possible input. This would require analyzing training data and figuring out the ways in which this varies, and how these variations are distributed. With this data more accurately representing the distribution of all possible data, the performance of the model on both training and unseen data could possibly be improved.
+
+\appendix
+
+\section{Appendix}
+
+\subsection{Training images}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{screenshot001}
+	\caption{Training images separated into the three color channels.}
+	\label{fig:screenshot001}
+\end{figure}
+
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{screenshot002}[h]
+	\caption{Training images separated into the three color channels.}
+	\label{fig:screenshot002}
+\end{figure}
+
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{screenshot003}
+	\caption{Training images separated into the three color channels.}
+	\label{fig:screenshot003}
+\end{figure}
+
+\subsection{Test images}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\linewidth]{screenshot004}
+	\caption{Test images separated into the three color channels.}
+	\label{fig:screenshot004}
+\end{figure}
+
+\newpage
+
+\subsection{Code}
+
+\inputminted{python}{/home/runeebl/Documents/Datalogi/EML/exercise3/src/main.py}
+
+
+\end{document}

@@ -1,0 +1,348 @@
+\documentclass[a4paper, 12pt]{article}
+
+\usepackage{cmap}
+\usepackage[T1]{fontenc}
+\usepackage[utf8x]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage[all]{hypcap}
+\usepackage{float}
+\usepackage[margin=1in]{geometry}
+%\usepackage{minted}
+%\usepackage{pdfpages}
+\usepackage{csquotes}
+
+
+\usepackage[english, science, small]{ku-frontpage}
+
+\usepackage{parskip}
+
+\usepackage[makeroom]{cancel}
+\newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+%\setlength\arraycolsep{2 pt}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{0}
+
+%\setminted[python]{linenos,autogobble,fontsize=\footnotesize}
+
+\graphicspath{{media/}}
+
+% TODO:
+\assignment{}
+\author{Rune Ejnar Bang Lejbølle}
+\title{Exercise 1}
+\subtitle{Elements of Machine Learning}
+\advisor{}
+\date{\today}
+
+\begin{document}
+	
+\maketitle
+
+
+\section{PRML Exercises}
+\subsection{8.3}
+
+We start by calculating the joint distribution $p(a,b)$ by marginalizing using the following formula:
+
+\begin{align}
+	p(a,b) = \sum_c p(a,b,c)
+\end{align}
+
+Plugging into the formula and looking up probabilities in Table 8.2 we get:
+
+\begin{align}
+	p(a=0,b=0) = \sum_c p(a=0,b=0,c) = 0.192 + 0.144 = 0.336\\
+	p(a=0,b=1) = \sum_c p(a=0,b=1,c) = 0.048 + 0.216 = 0.264\\
+	p(a=1,b=0) = \sum_c p(a=1,b=0,c) = 0.192 + 0.064 = 0.256\\
+	p(a=1,b=1) = \sum_c p(a=1,b=1,c) = 0.048 + 0.096 = 0.144
+\end{align}
+
+We can now marginalize further to obtain the marginal distributions $p(a)$ and $p(b)$ using the following formulae:
+
+\begin{align}
+	p(a) = \sum_b p(a,b)\\
+	p(b) = \sum_a p(a,b)
+\end{align}
+
+Again, we plug into the formula and read from the Table 8.2 to get:
+
+\begin{align}
+	p(a=1) = \sum_b p(a=1,b) = 0.256 + 0.144 = 0.4\\
+	p(b=1) = \sum_a p(a,b=1) = 0.264 + 0.144 = 0.408
+\end{align}
+
+Since the variables are binary we also get:
+
+\begin{align}
+	p(a=0) = 1 - p(a=1) = 0.6\\
+	p(b=0) = 1 - p(b=1) = 0.592
+\end{align}
+
+From this we can show that $p(a,b) \ne p(a)p(b)$ using a counter example. One such counter example is $p(a=0,b=0) = 0.336 \ne p(a=0)p(b=0) = 0.6 \cdot 0.592 = 0.3552$. Therefore $a$ and $b$ are marginally dependent.
+
+To check for conditional independence given $c$ we must now calculate the conditional distribution $p(a,b|c)$ using the following formula:
+
+\begin{align}
+	p(a,b|c) = \frac{p(a,b,c)}{p(c)}
+\end{align}
+
+We therefore first calculate the marginal distribution $p(c)$ using the following formula:
+
+\begin{align}
+	p(c) = \sum_{a,b} p(a,b,c)
+\end{align}
+
+Plugging values from Table 8.2 into the formula we get:
+
+\begin{align}
+	p(c=1) = \sum_{a,b} p(a,b,c=1) = 0.144 + 0.216 + 0.064 + 0.096 = 0.52
+\end{align}
+
+Since this a binary variable we also get $p(c=0) = 1 - p(c=1) = 0.48$
+
+We can now calculate the conditional distribution $p(a,b|c)$:
+
+\begin{align} \label{cond-start}
+	p(a=0,b=0|c=0) = \frac{p(a=0,b=0,c=0)}{p(c=0)} = \frac{0.192}{0.48} = 0.4\\
+	p(a=0,b=0|c=1) = \frac{p(a=0,b=0,c=1)}{p(c=1)} = \frac{0.144}{0.52} = 0.277\\
+	p(a=0,b=1|c=0) = \frac{p(a=0,b=1,c=0)}{p(c=0)} = \frac{0.048}{0.48} = 0.1\\
+	p(a=0,b=1|c=1) = \frac{p(a=0,b=1,c=1)}{p(c=1)} = \frac{0.216}{0.52} = 0.415\\
+	p(a=1,b=0|c=0) = \frac{p(a=1,b=0,c=0)}{p(c=0)} = \frac{0.192}{0.48} = 0.4\\
+	p(a=1,b=0|c=1) = \frac{p(a=1,b=0,c=1)}{p(c=1)} = \frac{0.064}{0.52} = 0.123\\
+	p(a=1,b=1|c=0) = \frac{p(a=1,b=1,c=0)}{p(c=0)} = \frac{0.048}{0.48} = 0.1\\
+	p(a=1,b=1|c=1) = \frac{p(a=1,b=1,c=1)}{p(c=1)} = \frac{0.096}{0.52} = 0.185
+	\label{cond-end}
+\end{align}
+
+We can now calculate the conditional distributions $p(a|c)$ and $p(b|c)$ by marginalizing using the following formulae:
+
+\begin{align}
+	p(a|c) = \sum_b p(a,b|c)\\
+	p(b|c) = \sum_a p(a,b|c)
+\end{align}
+
+Plugging into the formulae we get:
+
+\begin{align}
+	p(a=1|c=0) = \sum_b p(a=1,b|c=0) = 0.4 + 0.1 = 0.5\\
+	p(a=1|c=1) = \sum_b p(a=1,b|c=1) = 0.123 + 0.185 = 0.308\\
+	p(b=1|c=0) = \sum_a p(a,b=1|c=0) = 0.1 + 0.1 = 0.2\\
+	p(b=1|c=1) = \sum_a p(a,b=1|c=1) = 0.415 + 0.185 = 0.6
+\end{align}
+
+Again, since these are binary variables we have:
+
+\begin{align}
+	p(a=0|c=0) = 1 - p(a=1|c=0) = 0.5\\
+	p(a=0|c=1) = 1 - p(a=1|c=1) = 0.692\\
+	p(b=0|c=0) = 1 - p(b=1|c=0) = 0.8\\
+	p(b=0|c=1) = 1 - p(b=1|c=1) = 0.4
+\end{align}
+
+We now calculate the values of $p(a|c)p(b|c)$ to verify that they are the same as the values in \autoref{cond-start}-\autoref{cond-end}:
+
+\begin{align}
+	p(a=0|c=0) \cdot p(b=0|c=0) = 0.5 \cdot 0.8 = 0.4\\
+	p(a=0|c=1) \cdot p(b=0|c=1) = 0.692 \cdot 0.4 = 0.277\\
+	p(a=0|c=0) \cdot p(b=1|c=0) = 0.5 \cdot 0.2 = 0.1\\
+	p(a=0|c=1) \cdot p(b=1|c=1) = 0.692 \cdot 0.6 = 0.415\\
+	p(a=1|c=0) \cdot p(b=0|c=0) = 0.5 \cdot 0.8 = 0.4\\
+	p(a=1|c=1) \cdot p(b=0|c=1) = 0.308 \cdot 0.4 = 0.123\\
+	p(a=1|c=0) \cdot p(b=1|c=0) = 0.5 \cdot 0.2 = 0.1\\
+	p(a=1|c=1) \cdot p(b=1|c=1) = 0.308 \cdot 0.6 = 0.185
+\end{align}
+
+Since these values are the same as in \autoref{cond-start}-\autoref{cond-end} $a$ and $b$ are indeed independent when conditioned on $c$.
+
+\subsection{8.4}
+
+The distributions $p(a)$ and $p(b|c)$ were evaluated above. All that remains is therefore to evaluate $p(c|a)$. By using the fact that $p(a,c) = \sum_b p(a,b,c)$, we get the following formula:
+
+\begin{align}
+	p(c|a) = \frac{p(a,c)}{p(a)} = \frac{\sum_b p(a,b,c)}{p(a)}
+\end{align}
+
+Inserting values from Table 8.2 we get:
+
+\begin{align}
+	p(c=1|a=0) = \frac{\sum_b p(a=0,b,c=1)}{p(a=0)} = \frac{0.144 + 0.216}{0.6} = 0.6\\
+	p(c=1|a=1) = \frac{\sum_b p(a=1,b,c=1)}{p(a=1)} = \frac{0.064 + 0.096}{0.4} = 0.4
+\end{align}
+
+Using the fact that these are binary variables we get:
+
+\begin{align}
+	p(c=0|a=0) = 1 - p(c=1|a=0) = 0.4\\
+	p(c=0|a=1) = 1 - p(c=1|a=1) = 0.6
+\end{align}
+
+We can now calculate the distribution of $p(a)p(c|a)p(b|c)$ to verify that the values are the same as those in Table 8.2:
+
+\begin{align}
+	p(a=0)p(c=0|a=0)p(b=0|c=0) = 0.6 \cdot 0.4 \cdot 0.8 = 0.192\\
+	p(a=0)p(c=1|a=0)p(b=0|c=1) = 0.6 \cdot 0.6 \cdot 0.4 = 0.144\\
+	p(a=0)p(c=0|a=0)p(b=1|c=0) = 0.6 \cdot 0.4 \cdot 0.2 = 0.048\\
+	p(a=0)p(c=1|a=0)p(b=1|c=1) = 0.6 \cdot 0.6 \cdot 0.6 = 0.216\\
+	p(a=1)p(c=0|a=1)p(b=0|c=0) = 0.4 \cdot 0.6 \cdot 0.8 = 0.192\\
+	p(a=1)p(c=1|a=1)p(b=0|c=1) = 0.4 \cdot 0.4 \cdot 0.4 = 0.064\\
+	p(a=1)p(c=0|a=1)p(b=1|c=0) = 0.4 \cdot 0.6 \cdot 0.2 = 0.048\\
+	p(a=1)p(c=1|a=1)p(b=1|c=1) = 0.4 \cdot 0.4 \cdot 0.6 = 0.096
+\end{align}
+
+We have thereby shown by direct evaluation that $p(a,b,c) = p(a)p(c|a)p(b|c)$. This factorization is shown in \autoref{fig:directed}.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.7\linewidth]{directed.drawio}
+	\caption{Directed graph showing factorization of the distribution in Table 8.2.}
+	\label{fig:directed}
+\end{figure}
+
+
+\subsection{8.10}
+
+Using the d-separation criterion we see that the path from $a$ to $b$ is head-to-head at $c$. Since neither $c$ or its descendant $d$ is observed, the bath is blocked by rule (b) of d-separation. Since this is the only path from $a$ to $b$, it is indeed the case that $a \independent b ~|~ \emptyset$.
+
+If, however, we observe the variable $d$, the path is no longer blocked, since $d$ is a descendant of $c$, where the path meets head-to-head. We therefore have $a ~\cancel{\independent}~ b ~|~ d$.
+
+
+\subsection{9.5}
+
+In the directed graph shown in Figure 9.6, the only thing connecting the $\mathbf{z}_n$ nodes for the individual data points are model parameters, which are implicitly observed. All paths between individual $\mathbf{z}_n$ nodes therefore meet tail-to-tail at an observed variable, and are therefore blocked by rule (a) of d-separation. The $\mathbf{z}_n$ variables are therefore conditionally independent given the observed variables, and it is therefore the case that $p(\mathbf{Z} \mid \mathbf{X}, \mathbf{\mu}, \mathbf{\Sigma}, \mathbf{\pi})=\prod_{n=1}^{N} p\left(\mathbf{z}_{n} \mid \mathbf{X}_{n}, \mathbf{\mu}, \mathbf{\Sigma}, \mathbf{\pi}\right)$.
+
+
+\section{Old Faithful}
+% TODO: code snippets?
+\subsection{1}
+
+The data was loaded and plotted, resulting in the plot shown in \autoref{fig:screenshot001}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot001}
+	\caption{Plot of the Old Faithful dataset. The x-axis shows eruption time in minutes, while the y-axis show the waiting time in minutes until the next eruption}
+	\label{fig:screenshot001}
+\end{figure}
+
+
+\subsection{2}
+
+The EM was implemented by following the steps in the descriptioion of EM for Gaussian Mixtures from PRML page 438-439.
+
+The means are initialized by taking $k$ random samples from the data without replacement and using these as the initial means. Another initialization using more random values was also tried, but this version seemed to terminate in local minima more often than sampling from the dataset.
+
+% TODO: beware
+
+%The means are initialized by drawing $K$ random samples from a uniform distribution from $(x_{min}, y_{min})$ to $(x_{max}, y_{max})$ of the data.
+
+The covariance matrices are initialized to simply be the sample covariance over the entire data set, while the mixing coefficients are initialized to be $\frac{1}{K}$.
+
+In the E step, the responsibilities are calculated, using the current parameters of the model, and these responsibilities are then used in the M step to calculate new parameters for the model. Finally, the log likelihood is calculated. The algorithm iterates this way until the log likelihood increases by less than $1 \cdot 10^{-6}$ compared to the previous iteration, after which the algorithm terminates.
+
+Using this implementation, a mixture model consisting of two Gaussian components was estimated. The parameters of the estimated model were as follows:
+
+\begin{align}
+	\mathbf{\mu}_0 = \left[\begin{array}{cc}
+		2.037 & 54.479
+	\end{array}\right]\\
+	\mathbf{\mu}_1 = \left[\begin{array}{cc}
+		4.290 & 79.968
+	\end{array}\right]
+\end{align}
+\begin{align}
+	\mathbf{\Sigma}_0 = \left[\begin{array}{cc}
+		0.069 & 0.435\\
+		0.435 & 33.697
+	\end{array}\right]\\
+	\mathbf{\Sigma}_1 = \left[\begin{array}{cc}
+		0.170 & 0.941\\
+		0.941 & 36.046
+	\end{array}\right]
+\end{align}
+\begin{align}
+	\mathbf{\pi}_0 = 0.356\\
+	\mathbf{\pi}_1 = 0.644
+\end{align}
+
+The final log likelihood was $-1130.264$. The estimated mixture model is visualized in \autoref{fig:screenshot002}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot002}
+	\caption{Visualization of the estimated model. The means of the components are shown as yellow x'es, while the background shows a contour plot of the PDF of the mixture model.}
+	\label{fig:screenshot002}
+\end{figure}
+
+\subsection{3}
+
+The responsibilities of each component is visualized in \autoref{fig:screenshot003}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot003}
+	\caption{Visualization of the responsibilities of each component of the model. Both the background and the individual points are colored by using the green and red color channels to represent the responsibility of the first and second component, respectively.}
+	\label{fig:screenshot003}
+\end{figure}
+
+The plot shows that except for at a fairly narrow boundary almost all points are assigned with a responsibility of very close to $1$ in one component, and very close to $0$ in the other.
+
+\subsection{4}
+
+Increasing the amount of components to 3 grants less consistent results, that are more dependant on the random initialization of the means. However, the most often occurring result, which also had the largest log likelihood of $-1119.2$, is shown in \autoref{fig:screenshot004}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot004}
+	\caption{Estimated mixture model using $K=3$.}
+	\label{fig:screenshot004}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot008}
+	\caption{Responsibilities of model with $K=3$}
+	\label{fig:screenshot008}
+\end{figure}
+
+
+As can be seen in the plot, the PDF of this model is very similar to the model with $K=2$. The additional component seems to be used by the model to describe some of the outliers between the 2 major clusters. However, this component is assigned a very low mixing coefficient, so it does not change the overall model much.
+
+Further increasing the amount of components to $K=6$ decreases the consistency of the model even more, but two example results are shown in \autoref{fig:screenshot005}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{screenshot009}
+	\includegraphics[width=0.4\linewidth]{screenshot010}
+	\caption{Estimated mixture models using $K=6$.}
+	\label{fig:screenshot005}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{screenshot011}
+	\includegraphics[width=0.4\linewidth]{screenshot012}
+	\caption{Responsibilities of models with $K=6$}
+	\label{fig:screenshot008}
+\end{figure}
+
+
+The left model achieved a log likelihood of $-1103.3$, while the right reached $-1101.9$. Both models seem to show signs of overfitting.
+
+Finally, increasing to $K=10$ the log likelihood increases to $-1079.5$, but it is even clearer that the model is overfitting to the input data, as shown in \autoref{fig:screenshot007}. The model is now able to form very complex patterns that fit specifically to the input data, but this likely does not generalize well to unseen data.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{screenshot007}
+	\caption{Estimated mixture models using $K=10$.}
+	\label{fig:screenshot007}
+\end{figure}
+
+
+
+
+\end{document}
